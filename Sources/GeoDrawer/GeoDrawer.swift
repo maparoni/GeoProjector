@@ -36,10 +36,10 @@ public struct GeoDrawer {
 
 extension GeoDrawer {
   
-  public init(/*boundingBox: GeoJSON.BoundingBox, */size: Size) {
+  public init(/*boundingBox: GeoJSON.BoundingBox, */size: Size, projection: Projection) {
 
     self.converter = { position -> (Point, Bool) in
-      let point = Projection.equirectangular().point(for: position, size: size)
+      let point = projection.point(for: position, size: size)
       return (point, false)
     }
     

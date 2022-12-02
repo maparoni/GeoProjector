@@ -9,14 +9,16 @@ import Foundation
 
 extension Projection {
   
-  enum Orthographic {
+  struct Orthographic {
     
-    static func x(lat: Double, lng: Double, refLat: Double = 0, refLng: Double = 0) -> Double {
-      return cos(lat) * sin(lng - refLng)
-    }
-
-    static func y(lat: Double, lng: Double, refLat: Double = 0, refLng: Double = 0) -> Double {
-      return cos(refLat) * sin(lat) - sin(refLat) * cos(lat) * cos(lng - refLng)
+    var refLat: Double = 0
+    var refLng: Double = 0
+    
+    func project(_ point: Point) -> Point {
+      return .init(
+        x: cos(point.y) * sin(point.x - refLng),
+        y: cos(refLat) * sin(point.y) - sin(refLat) * cos(point.y) * cos(point.x - refLng)
+      )
     }
 
   }

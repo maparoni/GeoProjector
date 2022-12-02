@@ -23,6 +23,6 @@ final class ProjectionTests: XCTestCase {
   
   func testOrthographic() throws {
     let zeroZero = GeoJSON.Position(latitude: 0, longitude: 0)
-    XCTAssertEqual(Projection.orthographic.point(for: zeroZero, size: .init(width: 100, height: 100)), .init(x: 50, y: 50))
+    XCTAssertEqual(Projection.orthographic().point(for: zeroZero, size: .init(width: 100, height: 100)), .init(x: 50, y: 50))
   }
 }

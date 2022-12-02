@@ -38,7 +38,7 @@ extension GeoDrawer {
   }
   
   public func draw(_ polygon: GeoJSON.Polygon, fillColor: UIColor, strokeColor: UIColor? = nil, frame: CGRect) {
-    //guard fillColor != .clear || (strokeColor != nil && strokeColor != .clear) else { return }
+    guard fillColor != .clear || (strokeColor != nil && strokeColor != .clear) else { return }
     
     let converted = polygon.exterior.positions.map(converter)
     let grouped = Dictionary(grouping: converted, by: \.1).mapValues { $0.map(\.0) }
