@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "geojsonkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/maparoni/geojsonkit.git",
+      "state" : {
+        "revision" : "8f1e5094a8ab8cbb020074cd4848a5804c17bab0",
+        "version" : "0.5.2"
+      }
+    }
+  ],
+  "version" : 2
+}
