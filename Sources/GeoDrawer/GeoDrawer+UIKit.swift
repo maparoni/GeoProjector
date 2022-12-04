@@ -9,6 +9,7 @@
 import UIKit
 
 import GeoJSONKit
+import GeoJSONKitTurf
 import GeoProjector
 
 // MARK: - Context drawing
@@ -126,10 +127,24 @@ extension GeoDrawer {
     let bounds = CGRect(origin: .zero, size: size)
     let renderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
     let image = renderer.image { rendererContext in
-      if let background {
-        background.setFill()
-        rendererContext.fill(bounds)
-      }
+      #warning("TODO: In step one, we could turn this into shapes; and then get the bounding box of the shapes, and then only draw that, placing it into the desired `size` by setting an appropriate offset. That way we don't need to 'hack' the projection formulas to align to 0. And it would make the inverse easier, though it'd need to consider those offsets.")
+      
+//      if let background {
+//        background.setFill()
+//        rendererContext.fill(bounds)
+//      }
+      UIColor.white.setFill()
+      rendererContext.fill(bounds)
+
+      // You deal with weird rounding errors when going directly to 90/180...
+      let world: [GeoJSON.Position] = [
+        .init(latitude:  89.9, longitude: -179.9),
+        .init(latitude:  89.9, longitude:  179.9),
+        .init(latitude: -89.9, longitude:  179.9),
+        .init(latitude: -89.9, longitude: -179.9),
+        .init(latitude:  89.9, longitude: -179.9),
+      ]
+      draw(GeoJSON.Polygon(exterior: .init(positions: world).chunked(length: 100_000)), fillColor: background ?? .systemBlue, frame: bounds)
       
       // Then draw contents on top
       for content in contents {

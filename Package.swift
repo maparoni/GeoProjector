@@ -15,22 +15,25 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/maparoni/geojsonkit.git", from: "0.5.0"),
+//    .package(url: "https://github.com/maparoni/geojsonkit-turf", from: "0.1.0"),
+    .package(name: "geojsonkit-turf", path: "../GeoJSONKit-Turf"),
   ],
   targets: [
-    // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-    // Targets can depend on other targets in this package, and on products in packages this package depends on.
     .target(
       name: "GeoProjector",
       dependencies: [
-        .product(name: "GeoJSONKit", package: "geojsonkit")
+        .product(name: "GeoJSONKit", package: "geojsonkit"),
+        .product(name: "GeoJSONKitTurf", package: "geojsonkit-turf"),
       ]),
     .testTarget(
       name: "GeoProjectorTests",
-      dependencies: ["GeoProjector"]),
+      dependencies: [
+        "GeoProjector",
+      ]),
     .target(
       name: "GeoDrawer",
       dependencies: [
-        "GeoProjector"
+        "GeoProjector",
       ]),
   ]
 )

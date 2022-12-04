@@ -8,32 +8,37 @@
 import SwiftUI
 
 import GeoProjector
+import GeoJSONKit
 
 @available(iOS 15.0, *)
 struct GeoMapView: View {
   enum ProjectionType: String, CaseIterable {
-    case flatSquare
+    case equirectangular
     case mercator
+    case gallPeters
+    case equalEarth
     case orthographic
+    case azimuthal
   }
   
   class Model: ObservableObject {
-    init(contents: [GeoDrawer.Content], projection: Projection) {
+    init(contents: [GeoDrawer.Content]) {
       self.contents = contents
-      self.projection = projection
+      self.projection = Projections.PlateCarree()
+      self.projectionType = .equirectangular
       self.image = nil
       updateImage()
     }
     
     let contents: [GeoDrawer.Content]
     
-    var projection: Projection {
+    var projection: any Projection {
       didSet {
         updateImage()
       }
     }
     
-    @Published var projectionType: ProjectionType = .flatSquare {
+    @Published var projectionType: ProjectionType {
       didSet { updateProjection() }
     }
     
@@ -45,22 +50,42 @@ struct GeoMapView: View {
       didSet { updateProjection() }
     }
 
+    @Published var equirectangularPhiOne: Double = 0 {
+      didSet { updateProjection() }
+    }
+
     @Published var image: UIImage?
     
     func updateProjection() {
+      let reference = GeoJSON.Position(latitude: refLat, longitude: refLng)
+      
       switch projectionType {
-      case .flatSquare:
-        projection = .equirectangular()
+      case .equirectangular:
+        projection = Projections.Equirectangular(reference: reference, phiOne: equirectangularPhiOne)
       case .mercator:
-        projection = .mercator
+        projection = Projections.Mercator(reference: reference)
+      case .gallPeters:
+        projection = Projections.GallPeters(reference: reference)
+      case .equalEarth:
+        projection = Projections.EqualEarth(reference: reference)
       case .orthographic:
-        projection = .orthographic(reference: .init(latitude: refLat, longitude: refLng))
+        projection = Projections.Orthographic(reference: reference)
+      case .azimuthal:
+        projection = Projections.AzimuthalEquidistant(reference: reference)
       }
     }
     
     func updateImage() {
-      let drawer = GeoDrawer(/*boundingBox: .init(positions: []),*/ size: .init(width: 200, height: 100), projection: self.projection)
-      self.image = drawer.drawImage(self.contents, background: .systemYellow, size: .init(width: 200, height: 150))
+      let drawer = GeoDrawer(
+        /*boundingBox: .init(positions: []),*/
+        size: .init(width: 300, height: 150),
+        projection: self.projection
+      )
+      self.image = drawer.drawImage(
+        self.contents,
+        background: .systemTeal,
+        size: .init(width: 300, height: 300)
+      )
     }
   }
   
@@ -80,12 +105,19 @@ struct GeoMapView: View {
         }
       }
       
-      if model.projectionType == .orthographic {
-        Slider(value: $model.refLat, in: -90...90)
-        Slider(value: $model.refLng, in: -180...180)
+      Slider(value: $model.refLat, in: -90...90)
+      Slider(value: $model.refLng, in: -180...180)
+      
+      switch model.projectionType {
+      case .equirectangular:
+        Slider(value: $model.equirectangularPhiOne, in: -90...90)
+      case .orthographic, .mercator, .gallPeters, .equalEarth, .azimuthal:
+        EmptyView()
       }
+      
+      Spacer()
     }
-    .padding(.horizontal, 40)
+    .padding(40)
   }
 }
 
@@ -93,14 +125,7 @@ struct GeoMapView: View {
 @available(iOS 15.0, *)
 struct GeoMapView_Previews: PreviewProvider {
   static var previews: some View {
-    GeoMapView(model: .init(contents: try! GeoDrawer.Content.world(), projection: .mercator))
-      .previewLayout(.fixed(width: 250, height: 200))
-
-    GeoMapView(model: .init(contents: try! GeoDrawer.Content.world(), projection: .equirectangular()))
-      .previewLayout(.fixed(width: 250, height: 150))
-
-    GeoMapView(model: .init(contents: try! GeoDrawer.Content.world(), projection: .orthographic(reference: .init(latitude: 0, longitude: 0))))
-      .previewLayout(.fixed(width: 250, height: 150))
+    GeoMapView(model: .init(contents: try! GeoDrawer.Content.world()))
   }
 }
 #endif
