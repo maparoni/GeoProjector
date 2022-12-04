@@ -161,14 +161,7 @@ extension GeoDrawer {
       rendererContext.fill(bounds)
 
       // You deal with weird rounding errors when going directly to 90/180...
-      let world: [GeoJSON.Position] = [
-        .init(latitude:  89.9, longitude: -179.9),
-        .init(latitude:  89.9, longitude:  179.9),
-        .init(latitude: -89.9, longitude:  179.9),
-        .init(latitude: -89.9, longitude: -179.9),
-        .init(latitude:  89.9, longitude: -179.9),
-      ]
-      draw(GeoJSON.Polygon(exterior: .init(positions: world).chunked(length: 100_000)), fillColor: background ?? .systemBlue, frame: bounds)
+      draw(mapBounds, fillColor: background ?? .systemBlue, frame: bounds)
       
       // Then draw contents on top
       for content in contents {
