@@ -40,8 +40,23 @@ extension GeoDrawer {
   
   public func draw(_ polygon: GeoJSON.Polygon, fillColor: UIColor, strokeColor: UIColor? = nil, frame: CGRect) {
     guard fillColor != .clear || (strokeColor != nil && strokeColor != .clear) else { return }
-    
+
     let converted = polygon.exterior.positions.map(converter)
+    
+    // In some projections such as Azimuthal, we might need to colour a cut-out
+    // rather than the projected polygon. Heuristic: Get a point that is known
+    // to be on the original polygon, then project that, and check if that
+    // projected point is contained in the projected polygon. If it's not, it's
+    // a cutout.
+    let invert: Bool
+    if mightInvert, let pointOnPolygon = GeoJSON.Geometry.polygon(polygon).centerOfMass(), polygon.contains(pointOnPolygon) {
+      let inverted = converter(pointOnPolygon).0
+      let projectedPolygon = GeoJSON.Polygon(exterior: .init(positions: converted.map(\.0).map { GeoJSON.Position(latitude: $0.y, longitude: $0.x) }))
+      invert = !projectedPolygon.contains(.init(latitude: inverted.y, longitude: inverted.x))
+    } else {
+      invert = false
+    }
+    
     let grouped = Dictionary(grouping: converted, by: \.1).mapValues { $0.map(\.0) }
     for points in grouped.values {
       
@@ -76,7 +91,16 @@ extension GeoDrawer {
       }
 
       // Then we can draw the polygon
-      if fillColor != .clear {
+      
+      if invert {
+        // TODO: This doesn't actually invert. Would be nice to do that later.
+        fillColor.setStroke()
+        path.lineWidth = 2
+        path.lineCapStyle = .round
+        path.lineJoinStyle = .round
+        path.stroke()
+
+      } else if fillColor != .clear {
         fillColor.setFill()
         path.lineWidth = 0
         path.fill()

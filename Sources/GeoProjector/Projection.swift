@@ -36,10 +36,14 @@ public protocol Projection {
   func project(_ point: Point) -> Point
   
   var showsFullEarth: Bool { get }
+  
+  var mightInvert: Bool { get }
 }
 
 extension Projection {
   public var showsFullEarth: Bool { true }
+  public var mightInvert: Bool { false }
+  
 }
 
 extension Projection {
