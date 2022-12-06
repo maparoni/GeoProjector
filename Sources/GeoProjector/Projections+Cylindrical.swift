@@ -11,15 +11,7 @@ import GeoJSONKit
 
 extension Projections {
   
-  /// Fancy name for 'no' projection
-  public struct PlateCarree: Projection {
-    public init(reference: Point) {}
-
-    public func project(_ point: Point) -> Point {
-      return point
-    }
-  }
-  
+  /// Projection applying plain lat/long, use `phiOne = 0` for Plate Carée
   /// https://en.wikipedia.org/wiki/Equirectangular_projection
   public struct Equirectangular: Projection {
     public init(reference: Point, phiOne: Double) {
@@ -35,7 +27,7 @@ extension Projections {
       self.init(reference: .init(x: reference.longitude.toRadians(), y: reference.latitude.toRadians()), phiOne: phiOne)
     }
 
-    let reference: Point
+    public let reference: Point
 
     /// "The standard parallels (north and south of the equator) where the scale of the projection is true"
     var phiOne: Double = 0
@@ -51,8 +43,12 @@ extension Projections {
   /// Web standard
   /// https://en.wikipedia.org/wiki/Mercator_projection
   public struct Mercator: Projection {
-    public init(reference: Point) {}
-
+    public init(reference: Point) {
+      self.reference = reference
+    }
+    
+    public let reference: Point
+    
     public func project(_ point: Point) -> Point {
       // TODO: The initial .pi / -2 on y, isn't part of the official formula, but to add missing padding.
       
@@ -66,7 +62,11 @@ extension Projections {
   /// Ugly, but good equal-area representation
   /// https://en.wikipedia.org/wiki/Gall–Peters_projection
   public struct GallPeters: Projection {
-    public init(reference: Point) {}
+    public init(reference: Point) {
+      self.reference = reference
+    }
+    
+    public let reference: Point
     
     public func project(_ point: Point) -> Point {
       // TODO: The initial .pi / -4 on y, isn't part of the official formula, but to add missing padding.

@@ -7,40 +7,39 @@
 
 import Foundation
 
+import GeoJSONKit
+
 extension Projections {
   
-  /// Special case of ``AzimuthalEquidistant`` focussed on North Pole
-  public struct PolarAzimuthalEquidistant: Projection {
-    public init(reference: Point) {
-      self.reference = reference
-    }
-    
-    public let reference: Point
-    
-    public let mightInvert = true
-    
-    public func project(_ point: Point) -> Point {
-      // TODO: The initial .pi / -2 on y, isn't part of the official formula, but to add missing padding.
-      
-      let r = .pi/2 - point.y
-      return .init(
-        x: r * sin(point.x),
-        y: .pi / -2 + -r * cos(point.x)
-      )
-    }
-
-  }
-  
   /// https://en.wikipedia.org/wiki/Azimuthal_equidistant_projection
+  ///
+  /// For a North-Pole special case set the reference to lat: 90, longitude: any.
   public struct AzimuthalEquidistant: Projection {
     public init(reference: Point) {
       self.reference = reference
+      
+      // Heuristic: Get the antipode to the reference, if a polygon contains
+      // that, the projection will "wrap" around.
+      var antipode = GeoJSON.Position(
+        latitude: reference.y.toDegrees() * -1,
+        longitude: reference.x.toDegrees() + 180
+      )
+      if antipode.longitude > 180 {
+        antipode.longitude -= 360
+      }
+      if antipode.longitude <= -179.9 {
+        antipode.longitude = -179.9
+      }
+      if antipode.latitude < -89.9 {
+        antipode.latitude = -89.9
+      }
+      self.invertCheck = { $0.contains(antipode) }
     }
     
     public let reference: Point
     
-    public let mightInvert = true
-    
+    public let invertCheck: ((GeoJSON.Polygon) -> Bool)?
+
     public func project(_ point: Point) -> Point {
       // TODO: The initial .pi / -2 on y, isn't part of the official formula, but to add missing padding.
       

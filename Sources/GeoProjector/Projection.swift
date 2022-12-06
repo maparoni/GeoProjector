@@ -45,11 +45,12 @@ public protocol Projection {
   /// The bounds of the visible map considering projection and reference
   var mapBounds: GeoJSON.Polygon { get }
   
-  var mightInvert: Bool { get }
+  var invertCheck: ((GeoJSON.Polygon) -> Bool)? { get }
 }
 
 extension Projection {
-  public var mightInvert: Bool { false }
+  
+  public var invertCheck: ((GeoJSON.Polygon) -> Bool)? { nil }
   
   public var mapBounds: GeoJSON.Polygon {
     // By default, only the longitude delta is considered to allow scrolling

@@ -11,15 +11,15 @@ import GeoProjector
 
 public struct GeoDrawer {
   
-  public init(mightInvert: Bool = false, mapBounds: GeoJSON.Polygon, converter: @escaping (GeoJSON.Position) -> (Point, Bool)) {
-    self.mightInvert = mightInvert
+  public init(mapBounds: GeoJSON.Polygon, converter: @escaping (GeoJSON.Position) -> (Point, Bool), invertCheck: ((GeoJSON.Polygon) -> Bool)? = nil) {
     self.mapBounds = mapBounds
     self.converter = converter
+    self.invertCheck = invertCheck
   }
   
-  let mightInvert: Bool
-  
   let mapBounds: GeoJSON.Polygon
+  
+  let invertCheck: ((GeoJSON.Polygon) -> Bool)?
   
   let converter: (GeoJSON.Position) -> (Point, Bool)
 }
@@ -44,7 +44,7 @@ extension GeoDrawer {
   
   public init(/*boundingBox: GeoJSON.BoundingBox, */size: Size, projection: Projection) {
 
-    self.mightInvert = projection.mightInvert
+    self.invertCheck = projection.invertCheck
     self.mapBounds = projection.mapBounds
     
     self.converter = { position -> (Point, Bool) in

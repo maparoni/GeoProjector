@@ -24,7 +24,7 @@ struct GeoMapView: View {
   class Model: ObservableObject {
     init(contents: [GeoDrawer.Content]) {
       self.contents = contents
-      self.projection = Projections.PlateCarree()
+      self.projection = Projections.Equirectangular()
       self.projectionType = .equirectangular
       self.image = nil
       updateImage()

@@ -12,7 +12,11 @@ extension Projections {
   /// Good compromise
   /// https://en.wikipedia.org/wiki/Equal_Earth_projection
   public struct EqualEarth: Projection {
-    public init(reference: Point) {}
+    public init(reference: Point) {
+      self.reference = reference
+    }
+    
+    public let reference: Point
     
     private static let A = [1.340264, -0.081106, 0.000893, 0.003796]
     private static let B = sqrt(3) / 2
