@@ -40,6 +40,8 @@ public protocol Projection {
   
   func project(_ point: Point) -> Point
   
+  func willWrap(_ point: Point) -> Bool
+  
   var reference: Point { get }
   
   /// The bounds of the visible map considering projection and reference
@@ -51,6 +53,8 @@ public protocol Projection {
 extension Projection {
   
   public var invertCheck: ((GeoJSON.Polygon) -> Bool)? { nil }
+  
+  public func willWrap(_ point: Point) -> Bool { false }
   
   public var mapBounds: GeoJSON.Polygon {
     // By default, only the longitude delta is considered to allow scrolling
@@ -78,14 +82,15 @@ extension Projection {
 
 extension Projection {
   
-  public func point(for position: GeoJSON.Position, size: Size) -> Point {
+  public func point(for position: GeoJSON.Position, size: Size) -> (Point, Bool) {
     let input = Point(x: position.longitude.toRadians(), y: position.latitude.toRadians())
+    let wrap = self.willWrap(input)
     
     let projected = project(input)
     
     let reversed = Point(x: projected.x.toDegrees(), y: projected.y.toDegrees())
     let normalized = Point(x: (reversed.x + 180) / 360, y: (reversed.y * -1 + 90) / 180)
-    return .init(x: normalized.x * size.width, y: normalized.y * size.height)
+    return (.init(x: normalized.x * size.width, y: normalized.y * size.height), wrap)
   }
   
 }

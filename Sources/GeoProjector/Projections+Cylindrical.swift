@@ -11,6 +11,22 @@ import GeoJSONKit
 
 extension Projections {
   
+  private static func willWrap(_ point: Point, reference: Point) -> Bool {
+    let adjusted = point.x - reference.x
+    return adjusted < .pi * -1 || adjusted > .pi
+  }
+
+  private static func adjust(_ point: Point, reference: Point) -> Point {
+    var adjusted = point.x - reference.x
+    if adjusted < .pi * -1 {
+      adjusted += .pi * 2
+    } else if adjusted > .pi {
+      adjusted -= .pi * 2
+    }
+    precondition(adjusted >= .pi * -1 && adjusted <= .pi)
+    return .init(x: adjusted, y: point.y)
+  }
+
   /// Projection applying plain lat/long, use `phiOne = 0` for Plate Carée
   /// https://en.wikipedia.org/wiki/Equirectangular_projection
   public struct Equirectangular: Projection {
@@ -31,13 +47,19 @@ extension Projections {
 
     /// "The standard parallels (north and south of the equator) where the scale of the projection is true"
     var phiOne: Double = 0
-        
+
+    public func willWrap(_ point: Point) -> Bool {
+      Projections.willWrap(point, reference: reference)
+    }
+
     public func project(_ point: Point) -> Point {
+      let adjusted = Projections.adjust(point, reference: reference)
       return .init(
-        x: (point.x - reference.x) * cos(phiOne),
-        y: (point.y - reference.y)
+        x: adjusted.x * cos(phiOne),
+        y: adjusted.y
       )
     }
+    
   }
   
   /// Web standard
@@ -49,12 +71,17 @@ extension Projections {
     
     public let reference: Point
     
+    public func willWrap(_ point: Point) -> Bool {
+      Projections.willWrap(point, reference: reference)
+    }
+
     public func project(_ point: Point) -> Point {
+      let adjusted = Projections.adjust(point, reference: reference)
+
       // TODO: The initial .pi / -2 on y, isn't part of the official formula, but to add missing padding.
-      
       return .init(
-        x: point.x,
-        y: .pi / -2 + log(tan(.pi / 4 + point.y / 2))
+        x: adjusted.x,
+        y: .pi / -2 + log(tan(.pi / 4 + adjusted.y / 2))
       )
     }
   }
@@ -68,12 +95,18 @@ extension Projections {
     
     public let reference: Point
     
+    public func willWrap(_ point: Point) -> Bool {
+      Projections.willWrap(point, reference: reference)
+    }
+
     public func project(_ point: Point) -> Point {
+      let adjusted = Projections.adjust(point, reference: reference)
+
       // TODO: The initial .pi / -4 on y, isn't part of the official formula, but to add missing padding.
       
       return .init(
-        x: point.x,
-        y: .pi / -4 + 2 * sin(point.y)
+        x: adjusted.x,
+        y: .pi / -4 + 2 * sin(adjusted.y)
       )
     }
   }

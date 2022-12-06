@@ -48,8 +48,7 @@ extension GeoDrawer {
     self.mapBounds = projection.mapBounds
     
     self.converter = { position -> (Point, Bool) in
-      let point = projection.point(for: position, size: size)
-      return (point, false)
+      return projection.point(for: position, size: size)
     }
     
 //    let mapRatio = CGFloat(boundingBox.aspectRatio)  // e.g., 100w,200h: 0.5
