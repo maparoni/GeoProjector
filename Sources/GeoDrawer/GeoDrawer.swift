@@ -11,46 +11,14 @@ import GeoProjector
 
 public struct GeoDrawer {
   
-  public init(mapBounds: GeoJSON.Polygon, converter: @escaping (GeoJSON.Position) -> (Point, Bool), invertCheck: ((GeoJSON.Polygon) -> Bool)? = nil) {
-    self.mapBounds = mapBounds
-    self.converter = converter
-    self.invertCheck = invertCheck
-  }
-  
-  let mapBounds: GeoJSON.Polygon
-  
-  let invertCheck: ((GeoJSON.Polygon) -> Bool)?
-  
-  let converter: (GeoJSON.Position) -> (Point, Bool)
-}
-
-//extension GeoDrawer {
-//
-//  public static func suggestedBoundingBox(for positions: [GeoJSON.Position], allowSpanningAntimeridian: Bool = true) -> GeoJSON.BoundingBox {
-//    let smallestBoundingBox = GeoJSON.BoundingBox(positions: positions, allowSpanningAntimeridian: allowSpanningAntimeridian)
-//    let fittedBoundingBox: GeoJSON.BoundingBox
-//    if smallestBoundingBox.spansAntimeridian, smallestBoundingBox.longitudeSpan > 180 {
-//      fittedBoundingBox = GeoJSON.BoundingBox(positions: positions, allowSpanningAntimeridian: false)
-//    } else {
-//      fittedBoundingBox = smallestBoundingBox
-//    }
-//    let paddedBoundingBox = fittedBoundingBox.scale(x: 1.1, y: 1.1)
-//    return paddedBoundingBox
-//  }
-//
-//}
-
-extension GeoDrawer {
-  
-  public init(/*boundingBox: GeoJSON.BoundingBox, */size: Size, projection: Projection) {
-
-    self.invertCheck = projection.invertCheck
-    self.mapBounds = projection.mapBounds
+  public init(/*boundingBox: GeoJSON.BoundingBox, */ size: Size, projection: Projection) {
+    self.projection = projection
+    self.size = size
     
     self.converter = { position -> (Point, Bool) in
       return projection.point(for: position, size: size)
     }
-    
+
 //    let mapRatio = CGFloat(boundingBox.aspectRatio)  // e.g., 100w,200h: 0.5
 //    let boundsRatio = size.aspectRatio               // e.g., 100w,50h:  2
 //
@@ -84,6 +52,30 @@ extension GeoDrawer {
 //      let point = offset + length * CGPoint(x: mapUnitVector.x, y: mapUnitVector.y * -1) // -1 as y origin is +90
 //      return (point, crossed)
 //    }
+
   }
   
+  let projection: Projection
+  
+  let size: Size
+    
+  var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection.invertCheck }
+  
+  let converter: (GeoJSON.Position) -> (Point, Bool)
 }
+
+//extension GeoDrawer {
+//
+//  public static func suggestedBoundingBox(for positions: [GeoJSON.Position], allowSpanningAntimeridian: Bool = true) -> GeoJSON.BoundingBox {
+//    let smallestBoundingBox = GeoJSON.BoundingBox(positions: positions, allowSpanningAntimeridian: allowSpanningAntimeridian)
+//    let fittedBoundingBox: GeoJSON.BoundingBox
+//    if smallestBoundingBox.spansAntimeridian, smallestBoundingBox.longitudeSpan > 180 {
+//      fittedBoundingBox = GeoJSON.BoundingBox(positions: positions, allowSpanningAntimeridian: false)
+//    } else {
+//      fittedBoundingBox = smallestBoundingBox
+//    }
+//    let paddedBoundingBox = fittedBoundingBox.scale(x: 1.1, y: 1.1)
+//    return paddedBoundingBox
+//  }
+//
+//}

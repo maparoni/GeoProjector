@@ -5,7 +5,9 @@
 //  Created by Adrian Schönig on 2/12/2022.
 //
 
+#if canImport(UIKit)
 import UIKit
+#endif
 
 import GeoJSONKit
 
@@ -19,7 +21,9 @@ extension GeoJSON.GeometryObject {
   }
 }
 
+#if canImport(UIKit)
 extension GeoDrawer.Content {
+
   static func content(for geoJSON: GeoJSON, color: UIColor) -> [GeoDrawer.Content] {
     let geometries: [GeoJSON.Geometry]
     switch geoJSON.object {
@@ -48,4 +52,5 @@ extension GeoDrawer.Content {
     return content(for: geoJSON, color: .systemGreen)
   }
 }
+#endif
 

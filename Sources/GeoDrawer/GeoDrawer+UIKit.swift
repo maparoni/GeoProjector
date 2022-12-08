@@ -19,7 +19,7 @@ extension GeoDrawer {
   /// Draws the line into the current context
   public func draw(_ line: GeoJSON.LineString, strokeColor: UIColor) {
     guard strokeColor != .clear else { return }
-
+    
     let converted = line.positions.map(converter)
     let grouped = Dictionary(grouping: converted, by: \.1).mapValues { $0.map(\.0) }
     for points in grouped.values {
@@ -40,7 +40,7 @@ extension GeoDrawer {
   
   public func draw(_ polygon: GeoJSON.Polygon, fillColor: UIColor, strokeColor: UIColor? = nil, frame: CGRect) {
     guard fillColor != .clear || (strokeColor != nil && strokeColor != .clear) else { return }
-
+    
     let converted = polygon.exterior.positions.map(converter)
     
     // In some projections such as Azimuthal, we might need to colour a cut-out
@@ -66,7 +66,7 @@ extension GeoDrawer {
         rect.addLine(to: CGPoint(x: frame.minX, y: frame.maxY))
         rect.addLine(to: CGPoint(x: frame.maxX, y: frame.maxY))
         rect.addLine(to: CGPoint(x: frame.maxX, y: frame.minY))
-
+        
         for interior in polygon.interiors {
           let interiorPoints = interior.positions.map(converter).map(\.0)
           guard !interiorPoints.isEmpty else { continue }
@@ -79,7 +79,7 @@ extension GeoDrawer {
         
         rect.addClip()
       }
-
+      
       // Then we can draw the polygon
       
       if invert {
@@ -89,7 +89,7 @@ extension GeoDrawer {
         path.lineCapStyle = .round
         path.lineJoinStyle = .round
         path.stroke()
-
+        
       } else if fillColor != .clear {
         fillColor.setFill()
         path.lineWidth = 0
@@ -122,6 +122,61 @@ extension GeoDrawer {
     }
   }
   
+  func draw(_ bounds: MapBounds, fillColor: UIColor? = nil, strokeColor: UIColor? = nil) {
+    let path: UIBezierPath
+    
+    switch bounds {
+    case .ellipse:
+      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size)
+      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size)
+
+      path = UIBezierPath(ovalIn: .init(
+        origin: min.cgPoint,
+        size: .init(width: max.x - min.x, height: max.y - min.y)
+      ))
+      
+    case .rectangle:
+      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size)
+      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size)
+      
+      let points: [Point] = [
+        .init(x: min.x, y: min.y),
+        .init(x: max.x, y: min.y),
+        .init(x: max.x, y: max.y),
+        .init(x: min.x, y: max.y),
+        .init(x: min.x, y: min.y),
+      ]
+      path = UIBezierPath(points: points, size: self.size)
+    
+    case .bezier(let array):
+      path = UIBezierPath(points: array, size: self.size)
+    }
+    
+    if let fillColor {
+      fillColor.setFill()
+      path.fill()
+    }
+    
+    if let strokeColor {
+      path.lineWidth = 2
+      strokeColor.setStroke()
+      path.stroke()
+    }
+
+  }
+  
+}
+
+extension UIBezierPath {
+  fileprivate convenience init(points: [Point], size: Size) {
+    self.init()
+    
+    guard !points.isEmpty else { return }
+    move(to: points[0].cgPoint)
+    for point in points[1...] {
+      addLine(to: point.cgPoint)
+    }
+  }
 }
 
 // MARK: - Image drawing
@@ -150,8 +205,8 @@ extension GeoDrawer {
       UIColor.white.setFill()
       rendererContext.fill(bounds)
 
-      // You deal with weird rounding errors when going directly to 90/180...
-      draw(mapBounds, fillColor: background ?? .systemBlue, frame: bounds)
+      // Draw the background
+      draw(projection.mapBounds, fillColor: background ?? .systemBlue)
       
       // Then draw contents on top
       for content in contents {
@@ -164,6 +219,10 @@ extension GeoDrawer {
           draw(polygon, fillColor: fill, strokeColor: stroke, frame: bounds)
         }
       }
+      
+      // Draw a border background *on top*
+      draw(projection.mapBounds, strokeColor: .black)
+
     }
     return image
     

@@ -33,6 +33,11 @@ extension Projections {
     public init(reference: Point, phiOne: Double) {
       self.reference = reference
       self.phiOne = phiOne.toRadians()
+      
+      self.projectionSize = .init(
+        width: 2 * .pi * cos(phiOne),
+        height: .pi
+      )
     }
 
     public init(reference: Point) {
@@ -47,6 +52,10 @@ extension Projections {
 
     /// "The standard parallels (north and south of the equator) where the scale of the projection is true"
     var phiOne: Double = 0
+    
+    public let projectionSize: Size
+    
+    public let mapBounds: MapBounds = .rectangle
 
     public func willWrap(_ point: Point) -> Bool {
       Projections.willWrap(point, reference: reference)
@@ -71,6 +80,11 @@ extension Projections {
     
     public let reference: Point
     
+    public let projectionSize: Size =
+      .init(width: 2 * .pi, height: 2 * .pi)
+    
+    public let mapBounds: MapBounds = .rectangle
+    
     public func willWrap(_ point: Point) -> Bool {
       Projections.willWrap(point, reference: reference)
     }
@@ -78,10 +92,9 @@ extension Projections {
     public func project(_ point: Point) -> Point {
       let adjusted = Projections.adjust(point, reference: reference)
 
-      // TODO: The initial .pi / -2 on y, isn't part of the official formula, but to add missing padding.
       return .init(
         x: adjusted.x,
-        y: .pi / -2 + log(tan(.pi / 4 + adjusted.y / 2))
+        y: log(tan(.pi / 4 + adjusted.y / 2))
       )
     }
   }
@@ -95,6 +108,11 @@ extension Projections {
     
     public let reference: Point
     
+    public let projectionSize: Size =
+      .init(width: 2 * .pi, height: 4)
+    
+    public let mapBounds: MapBounds = .rectangle
+    
     public func willWrap(_ point: Point) -> Bool {
       Projections.willWrap(point, reference: reference)
     }
@@ -102,11 +120,9 @@ extension Projections {
     public func project(_ point: Point) -> Point {
       let adjusted = Projections.adjust(point, reference: reference)
 
-      // TODO: The initial .pi / -4 on y, isn't part of the official formula, but to add missing padding.
-      
       return .init(
         x: adjusted.x,
-        y: .pi / -4 + 2 * sin(adjusted.y)
+        y: 2 * sin(adjusted.y)
       )
     }
   }

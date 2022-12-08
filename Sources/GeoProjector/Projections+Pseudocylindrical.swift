@@ -28,14 +28,20 @@ extension Projections {
   /// Good compromise
   /// https://en.wikipedia.org/wiki/Equal_Earth_projection
   public struct EqualEarth: Projection {
+    private static let A = [1.340264, -0.081106, 0.000893, 0.003796]
+    private static let B = sqrt(3) / 2
+
     public init(reference: Point) {
       self.reference = reference
     }
     
     public let reference: Point
     
-    private static let A = [1.340264, -0.081106, 0.000893, 0.003796]
-    private static let B = sqrt(3) / 2
+    public let projectionSize: Size =
+      .init(width: 2 * .pi, height: .pi)
+    
+    public let mapBounds: MapBounds =
+      .rectangle // TODO: Fix this; should be .bezier
     
     public func willWrap(_ point: Point) -> Bool {
       Projections.willWrap(point, reference: reference)

@@ -20,6 +20,11 @@ extension Projections {
     
     public let showsFullEarth = false
     
+    public let projectionSize: Size =
+      .init(width: 2, height: 2)
+    
+    public let mapBounds: MapBounds = .ellipse
+
     public func project(_ point: Point) -> Point {
       return .init(
         x: cos(point.y) * sin(point.x - reference.x),

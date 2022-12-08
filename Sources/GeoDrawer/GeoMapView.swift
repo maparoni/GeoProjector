@@ -5,6 +5,7 @@
 //  Created by Adrian Schönig on 2/12/2022.
 //
 
+#if os(iOS)
 import SwiftUI
 
 import GeoProjector
@@ -24,8 +25,8 @@ struct GeoMapView: View {
   class Model: ObservableObject {
     init(contents: [GeoDrawer.Content]) {
       self.contents = contents
-      self.projection = Projections.Equirectangular()
-      self.projectionType = .equirectangular
+      self.projection = Projections.Orthographic()
+      self.projectionType = .orthographic
       self.image = nil
       updateImage()
     }
@@ -78,7 +79,7 @@ struct GeoMapView: View {
     func updateImage() {
       let drawer = GeoDrawer(
         /*boundingBox: .init(positions: []),*/
-        size: .init(width: 300, height: 150),
+        size: .init(width: 300, height: 300),
         projection: self.projection
       )
       self.image = drawer.drawImage(
@@ -129,3 +130,5 @@ struct GeoMapView_Previews: PreviewProvider {
   }
 }
 #endif
+
+#endif // iOS

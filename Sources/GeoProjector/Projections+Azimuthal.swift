@@ -40,13 +40,16 @@ extension Projections {
     
     public let invertCheck: ((GeoJSON.Polygon) -> Bool)?
 
+    public var projectionSize: Size =
+      .init(width: 2 * .pi, height: 2 * .pi)
+    
+    public var mapBounds: MapBounds = .ellipse
+    
     public func project(_ point: Point) -> Point {
-      // TODO: The initial .pi / -2 on y, isn't part of the official formula, but to add missing padding.
-      
       let k = self.k(point)
       return .init(
         x: k * cos(point.y) * sin(point.x - reference.x),
-        y: .pi / -2 + k * (cos(reference.y) * sin(point.y) - sin(reference.y) * cos(point.y) * cos(point.x - reference.x))
+        y: k * (cos(reference.y) * sin(point.y) - sin(reference.y) * cos(point.y) * cos(point.x - reference.x))
       )
     }
     

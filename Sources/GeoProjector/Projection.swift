@@ -35,17 +35,37 @@ public struct Size: Equatable {
   public let height: Double
 }
 
+public enum MapBounds {
+  case ellipse // Ellipse fitting inside the projection's size
+  case rectangle // Rectangle fitting inside the projection's size
+  case bezier([Point])
+}
+
 public protocol Projection {
   init(reference: Point)
+
+  /// The reference point, which is projected to `(x: 0, y: 0)`. Can typically customised through
+  /// the initialiser, but this value can return a different point if a custom reference point is not supported.
+  var reference: Point { get }
   
+  /// Applies to projection to the provided point, returning the projected point.
+  ///
+  /// The provided point is a geo-coordinate in radians, i.e., x as longitude and y as the latitude with an
+  /// x range of `-pi...pi` and a y range of `(-pi/2)...(pi/2)`. The projection should use
+  /// the same coordinate system, with ``reference`` projected to `(x: 0, y: 0)`. The projection
+  /// can use a different range, which can use a smaller or larger range as indicated by
+  /// ``projectionRange``.
   func project(_ point: Point) -> Point
   
   func willWrap(_ point: Point) -> Bool
   
-  var reference: Point { get }
+  /// The maximum width/height that the projection uses. All projected points should be in the range of
+  /// x in `(-projectionSize.width / 2)...((+projectionSize.width / 2)` and y in
+  /// x in `(-projectionSize.height / 2)...((+projectionSize.height / 2)`
+  var projectionSize: Size { get }
   
-  /// The bounds of the visible map considering projection and reference
-  var mapBounds: GeoJSON.Polygon { get }
+  /// The bounds of the visible map
+  var mapBounds: MapBounds { get }
   
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { get }
 }
@@ -55,22 +75,6 @@ extension Projection {
   public var invertCheck: ((GeoJSON.Polygon) -> Bool)? { nil }
   
   public func willWrap(_ point: Point) -> Bool { false }
-  
-  public var mapBounds: GeoJSON.Polygon {
-    // By default, only the longitude delta is considered to allow scrolling
-    // beyond the antimeridian.
-    let longDelta = reference.x.toDegrees()
-    
-    // You deal with weird rounding errors when going directly to 90/180...
-    let world: [GeoJSON.Position] = [
-      .init(latitude:  89.9, longitude: -179.9 + longDelta),
-      .init(latitude:  89.9, longitude:  179.9 + longDelta),
-      .init(latitude: -89.9, longitude:  179.9 + longDelta),
-      .init(latitude: -89.9, longitude: -179.9 + longDelta),
-      .init(latitude:  89.9, longitude: -179.9 + longDelta),
-    ]
-    return GeoJSON.Polygon(exterior: .init(positions: world).chunked(length: 100_000))
-  }
   
 }
 
@@ -88,9 +92,51 @@ extension Projection {
     
     let projected = project(input)
     
-    let reversed = Point(x: projected.x.toDegrees(), y: projected.y.toDegrees())
-    let normalized = Point(x: (reversed.x + 180) / 360, y: (reversed.y * -1 + 90) / 180)
-    return (.init(x: normalized.x * size.width, y: normalized.y * size.height), wrap)
+//    let reversed = Point(x: projected.x.toDegrees(), y: projected.y.toDegrees())
+//    let normalized = Point(x: (reversed.x + 180) / 360, y: (reversed.y * -1 + 90) / 180)
+//    return (normalized.stretch(to: size), wrap)
+    return (translate(projected, to: size), wrap)
   }
   
+  public func translate(_ point: Point, to size: Size) -> Point {
+    let myRatio = projectionSize.aspectRatio
+    let targetRatio = size.aspectRatio
+    
+    let canvasSize: Size
+    if myRatio > targetRatio {
+      // target is heigher than me
+      canvasSize = .init(width: size.width, height: size.width / myRatio)
+    } else {
+      // target is wider than me
+      canvasSize = .init(width: size.height * myRatio, height: size.height)
+    }
+    
+    let canvasOffset: Point = .init(
+      x: (size.width - canvasSize.width) / 2,
+      y: (size.height - canvasSize.height) / 2
+    )
+    
+    let normalized = Point(
+      x: ((point.x      + projectionSize.width / 2) / projectionSize.width),
+      y: ((point.y * -1 + projectionSize.height / 2) / projectionSize.height)
+    )
+        
+    return .init(
+      x: canvasOffset.x + normalized.x * canvasSize.width,
+      y: canvasOffset.y + normalized.y * canvasSize.height
+    )
+  }
+  
+}
+
+extension Point {
+  public func stretch(to size: Size) -> Point {
+    .init(x: x * size.width, y: y * size.height)
+  }
+}
+
+extension Size {
+  var aspectRatio: Double {
+    width / height
+  }
 }

@@ -2,6 +2,7 @@ import XCTest
 
 import GeoJSONKit
 @testable import GeoProjector
+@testable import GeoDrawer
 
 final class ProjectionTests: XCTestCase {
   func testFlatSquare() throws {
