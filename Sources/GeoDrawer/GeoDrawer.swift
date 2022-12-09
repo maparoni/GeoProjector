@@ -15,7 +15,7 @@ public struct GeoDrawer {
     self.projection = projection
     self.size = size
     
-    self.converter = { position -> (Point, Bool) in
+    self.converter = { position -> (Point, Bool)? in
       return projection.point(for: position, size: size)
     }
 
@@ -61,7 +61,7 @@ public struct GeoDrawer {
     
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection.invertCheck }
   
-  let converter: (GeoJSON.Position) -> (Point, Bool)
+  let converter: (GeoJSON.Position) -> (Point, Bool)?
 }
 
 //extension GeoDrawer {

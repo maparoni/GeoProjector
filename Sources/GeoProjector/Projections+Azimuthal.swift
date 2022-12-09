@@ -45,7 +45,7 @@ extension Projections {
     
     public var mapBounds: MapBounds = .ellipse
     
-    public func project(_ point: Point) -> Point {
+    public func project(_ point: Point) -> Point? {
       let k = self.k(point)
       return .init(
         x: k * cos(point.y) * sin(point.x - reference.x),

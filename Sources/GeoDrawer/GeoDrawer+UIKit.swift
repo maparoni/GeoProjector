@@ -20,7 +20,7 @@ extension GeoDrawer {
   public func draw(_ line: GeoJSON.LineString, strokeColor: UIColor) {
     guard strokeColor != .clear else { return }
     
-    let converted = line.positions.map(converter)
+    let converted = line.positions.compactMap(converter)
     let grouped = Dictionary(grouping: converted, by: \.1).mapValues { $0.map(\.0) }
     for points in grouped.values {
       
@@ -41,7 +41,7 @@ extension GeoDrawer {
   public func draw(_ polygon: GeoJSON.Polygon, fillColor: UIColor, strokeColor: UIColor? = nil, frame: CGRect) {
     guard fillColor != .clear || (strokeColor != nil && strokeColor != .clear) else { return }
     
-    let converted = polygon.exterior.positions.map(converter)
+    let converted = polygon.exterior.positions.compactMap(converter)
     
     // In some projections such as Azimuthal, we might need to colour a cut-out
     // rather than the projected polygon.
@@ -68,7 +68,7 @@ extension GeoDrawer {
         rect.addLine(to: CGPoint(x: frame.maxX, y: frame.minY))
         
         for interior in polygon.interiors {
-          let interiorPoints = interior.positions.map(converter).map(\.0)
+          let interiorPoints = interior.positions.compactMap(converter).map(\.0)
           guard !interiorPoints.isEmpty else { continue }
           
           rect.move(to: interiorPoints[0].cgPoint)
@@ -106,9 +106,10 @@ extension GeoDrawer {
   }
   
   func drawCircle(_ position: GeoJSON.Position, radius: CGFloat, fillColor: UIColor, strokeColor: UIColor? = nil) {
+    guard let origin = converter(position) else { return }
     
     let path = UIBezierPath(ovalIn: .init(
-      origin: converter(position).0.cgPoint,
+      origin: origin.0.cgPoint,
       size: .init(width: radius, height: radius)
     ))
     

@@ -47,7 +47,7 @@ extension Projections {
       Projections.willWrap(point, reference: reference)
     }
 
-    public func project(_ point: Point) -> Point {
+    public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
 
       let th = asin(Self.B * sin(adjusted.y))

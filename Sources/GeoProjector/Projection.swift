@@ -55,7 +55,7 @@ public protocol Projection {
   /// the same coordinate system, with ``reference`` projected to `(x: 0, y: 0)`. The projection
   /// can use a different range, which can use a smaller or larger range as indicated by
   /// ``projectionRange``.
-  func project(_ point: Point) -> Point
+  func project(_ point: Point) -> Point?
   
   func willWrap(_ point: Point) -> Bool
   
@@ -86,11 +86,11 @@ extension Projection {
 
 extension Projection {
   
-  public func point(for position: GeoJSON.Position, size: Size) -> (Point, Bool) {
+  public func point(for position: GeoJSON.Position, size: Size) -> (Point, Bool)? {
     let input = Point(x: position.longitude.toRadians(), y: position.latitude.toRadians())
     let wrap = self.willWrap(input)
     
-    let projected = project(input)
+    guard let projected = project(input) else { return nil }
     
 //    let reversed = Point(x: projected.x.toDegrees(), y: projected.y.toDegrees())
 //    let normalized = Point(x: (reversed.x + 180) / 360, y: (reversed.y * -1 + 90) / 180)

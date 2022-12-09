@@ -61,7 +61,7 @@ extension Projections {
       Projections.willWrap(point, reference: reference)
     }
 
-    public func project(_ point: Point) -> Point {
+    public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
       return .init(
         x: adjusted.x * cos(phiOne),
@@ -89,7 +89,7 @@ extension Projections {
       Projections.willWrap(point, reference: reference)
     }
 
-    public func project(_ point: Point) -> Point {
+    public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
 
       return .init(
@@ -117,7 +117,7 @@ extension Projections {
       Projections.willWrap(point, reference: reference)
     }
 
-    public func project(_ point: Point) -> Point {
+    public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
 
       return .init(
