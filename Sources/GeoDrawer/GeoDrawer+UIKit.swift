@@ -147,10 +147,10 @@ extension GeoDrawer {
         .init(x: min.x, y: max.y),
         .init(x: min.x, y: min.y),
       ]
-      path = UIBezierPath(points: points, size: self.size)
+      path = UIBezierPath(points: points)
     
     case .bezier(let array):
-      path = UIBezierPath(points: array, size: self.size)
+      path = UIBezierPath(points: array.map { projection.translate($0, to: size) })
     }
     
     if let fillColor {
@@ -169,7 +169,7 @@ extension GeoDrawer {
 }
 
 extension UIBezierPath {
-  fileprivate convenience init(points: [Point], size: Size) {
+  fileprivate convenience init(points: [Point]) {
     self.init()
     
     guard !points.isEmpty else { return }

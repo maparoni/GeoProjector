@@ -33,15 +33,34 @@ extension Projections {
 
     public init(reference: Point) {
       self.reference = reference
+      
+      self.projectionSize = .init(
+        width: 2 / Self.B / Self.poly8(0) * .pi,
+        height: 2 * Self.poly9(.pi / 3)
+      )
+      
+      let inputCorners: [Point] = [
+        .init(x: -1 * .pi, y: .pi / 2),
+        .init(x: .pi, y: .pi / 2),
+        .init(x: .pi, y: -1 * .pi / 2),
+        .init(x: -1 * .pi, y: -1 * .pi / 2),
+        .init(x: -1 * .pi, y: .pi / 2),
+      ]
+      
+      let boundPoints = zip(inputCorners.dropLast(), inputCorners.dropFirst())
+        .reduce(into: [Point]()) { acc, next in
+          acc.append(Self.project(next.0))
+          acc.append(contentsOf: Interpolator.interpolate(from: next.0, to: next.1, maxDiff: 0.0025, projector: Self.project(_:)))
+          acc.append(Self.project(next.1))
+        }
+      self.mapBounds = .bezier(boundPoints)
     }
     
     public let reference: Point
     
-    public let projectionSize: Size =
-      .init(width: 2 * .pi, height: .pi)
+    public let projectionSize: Size
     
-    public let mapBounds: MapBounds =
-      .rectangle // TODO: Fix this; should be .bezier
+    public let mapBounds: MapBounds
     
     public func willWrap(_ point: Point) -> Bool {
       Projections.willWrap(point, reference: reference)
@@ -49,10 +68,13 @@ extension Projections {
 
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
-
-      let th = asin(Self.B * sin(adjusted.y))
+      return Self.project(adjusted)
+    }
+    
+    private static func project(_ point: Point) -> Point {
+      let th = asin(Self.B * sin(point.y))
       return .init(
-        x: cos(th) / Self.B / Self.poly8(th) * (adjusted.x),
+        x: cos(th) / Self.B / Self.poly8(th) * (point.x),
         y: Self.poly9(th)
       )
     }
