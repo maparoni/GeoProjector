@@ -10,6 +10,15 @@
       }
     },
     {
+      "identity" : "geojsonkit-turf",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/maparoni/geojsonkit-turf",
+      "state" : {
+        "revision" : "7e5d8bad4bc842e27caacf0a89223c7e047fbe64",
+        "version" : "0.1.4"
+      }
+    },
+    {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser",
