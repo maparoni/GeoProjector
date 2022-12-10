@@ -5,10 +5,6 @@
 //  Created by Adrian Schönig on 2/12/2022.
 //
 
-#if canImport(UIKit)
-import UIKit
-#endif
-
 import GeoJSONKit
 
 extension GeoJSON.GeometryObject {
@@ -21,10 +17,9 @@ extension GeoJSON.GeometryObject {
   }
 }
 
-#if canImport(UIKit)
 extension GeoDrawer.Content {
 
-  static func content(for geoJSON: GeoJSON, color: UIColor) -> [GeoDrawer.Content] {
+  public static func content(for geoJSON: GeoJSON, color: GeoDrawer.Color) -> [GeoDrawer.Content] {
     let geometries: [GeoJSON.Geometry]
     switch geoJSON.object {
     case .geometry(let geo): geometries = geo.geometries
@@ -42,7 +37,6 @@ extension GeoDrawer.Content {
         return .circle(position, radius: 1, fill: color)
       }
     }
-
   }
   
   static func world() throws -> [GeoDrawer.Content] {
@@ -52,5 +46,3 @@ extension GeoDrawer.Content {
     return content(for: geoJSON, color: .systemGreen)
   }
 }
-#endif
-

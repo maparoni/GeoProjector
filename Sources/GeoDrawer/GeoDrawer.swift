@@ -5,6 +5,12 @@
 //  Created by Adrian Schönig on 2/12/2022.
 //
 
+#if canImport(AppKit)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
+
 import GeoJSONKit
 
 import GeoProjector
@@ -44,3 +50,23 @@ public struct GeoDrawer {
 //  }
 //
 //}
+
+// MARK: - Content
+
+extension GeoDrawer {
+  
+#if canImport(AppKit)
+  typealias Color = NSColor
+#elseif canImport(UIKit)
+  typealias Color = UIColor
+#endif
+  
+  enum Content {
+    case line(GeoJSON.LineString, stroke: Color)
+    case polygon(GeoJSON.Polygon, fill: Color, stroke: Color? = nil)
+    case circle(GeoJSON.Position, radius: Double, fill: Color, stroke: Color? = nil)
+  }
+  
+
+  
+}
