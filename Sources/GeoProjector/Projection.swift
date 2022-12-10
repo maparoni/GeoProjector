@@ -92,9 +92,6 @@ extension Projection {
     
     guard let projected = project(input) else { return nil }
     
-//    let reversed = Point(x: projected.x.toDegrees(), y: projected.y.toDegrees())
-//    let normalized = Point(x: (reversed.x + 180) / 360, y: (reversed.y * -1 + 90) / 180)
-//    return (normalized.stretch(to: size), wrap)
     return (translate(projected, to: size), wrap)
   }
   

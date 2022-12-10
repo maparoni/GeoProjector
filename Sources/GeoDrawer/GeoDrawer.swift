@@ -18,41 +18,6 @@ public struct GeoDrawer {
     self.converter = { position -> (Point, Bool)? in
       return projection.point(for: position, size: size)
     }
-
-//    let mapRatio = CGFloat(boundingBox.aspectRatio)  // e.g., 100w,200h: 0.5
-//    let boundsRatio = size.aspectRatio               // e.g., 100w,50h:  2
-//
-//    let targetSize: CGSize
-//    let offset: CGPoint
-//    if mapRatio < boundsRatio {
-//      // constrained by height
-//      targetSize = CGSize(width: size.height * mapRatio, height: size.height)     // e.g., 25w,50h
-//      offset = CGPoint(x: (size.width - targetSize.width) / 2, y: 0)
-//
-//    } else {
-//      // constrained by width
-//      targetSize = CGSize(width: size.width, height: size.width / mapRatio)
-//      offset = CGPoint(x: 0, y: (size.height - targetSize.height) / 2)
-//    }
-//
-//    let scale = targetSize.length / CGFloat(boundingBox.length)
-//    let boxOrigin = GeoJSON.Position(latitude: boundingBox.northEasterlyLatitude, longitude: boundingBox.southWesterlyLongitude)
-//    let boxEndLongitude = boundingBox.northEasterlyLongitude
-//
-//    self.converter = { position -> (CGPoint, Bool) in
-//      var candidate = position
-//      var crossed: Bool = false
-//      if boundingBox.spansAntimeridian, position.longitude < boxOrigin.longitude, abs(position.longitude - boxOrigin.longitude) > abs(position.longitude - boxEndLongitude) {
-//        candidate.longitude += 360
-//        crossed = true
-//      }
-//      let mapOffset: GeoJSON.Position = candidate - boxOrigin
-//      let mapUnitVector = mapOffset.unitVector
-//      let length = CGFloat(mapOffset.length) * scale
-//      let point = offset + length * CGPoint(x: mapUnitVector.x, y: mapUnitVector.y * -1) // -1 as y origin is +90
-//      return (point, crossed)
-//    }
-
   }
   
   let projection: Projection

@@ -197,12 +197,8 @@ extension GeoDrawer {
     let bounds = CGRect(origin: .zero, size: size)
     let renderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
     let image = renderer.image { rendererContext in
-      #warning("TODO: In step one, we could turn this into shapes; and then get the bounding box of the shapes, and then only draw that, placing it into the desired `size` by setting an appropriate offset. That way we don't need to 'hack' the projection formulas to align to 0. And it would make the inverse easier, though it'd need to consider those offsets.")
+      #warning("TODO: Break this up into first building shapes to draw, to share this with AppKit or drawing as an SVG.")
       
-//      if let background {
-//        background.setFill()
-//        rendererContext.fill(bounds)
-//      }
       UIColor.white.setFill()
       rendererContext.fill(bounds)
 
