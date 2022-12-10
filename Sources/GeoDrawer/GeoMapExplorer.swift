@@ -1,10 +1,11 @@
 //
-//  GeoMapView.swift
+//  GeoMapExplorer.swift
 //  
 //
 //  Created by Adrian Schönig on 2/12/2022.
 //
 
+#if DEBUG
 #if os(iOS)
 import SwiftUI
 
@@ -12,7 +13,7 @@ import GeoProjector
 import GeoJSONKit
 
 @available(iOS 15.0, *)
-struct GeoMapView: View {
+struct GeoMapExplorer: View {
   enum ProjectionType: String, CaseIterable {
     case equirectangular
     case cassini
@@ -63,7 +64,7 @@ struct GeoMapView: View {
       
       switch projectionType {
       case .equirectangular:
-        projection = Projections.Equirectangular(reference: reference, phiOne: equirectangularPhiOne)
+        projection = Projections.Equirectangular(reference: reference, phiOne: equirectangularPhiOne.toRadians())
       case .cassini:
         projection = Projections.Cassini(reference: reference)
       case .mercator:
@@ -125,13 +126,12 @@ struct GeoMapView: View {
   }
 }
 
-#if DEBUG
 @available(iOS 15.0, *)
-struct GeoMapView_Previews: PreviewProvider {
+struct GeoMapExplorer_Previews: PreviewProvider {
   static var previews: some View {
-    GeoMapView(model: .init(contents: try! GeoDrawer.Content.world()))
+    GeoMapExplorer(model: .init(contents: try! GeoDrawer.Content.world()))
   }
 }
-#endif
 
 #endif // iOS
+#endif // DEBUG

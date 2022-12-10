@@ -13,7 +13,7 @@ import UIKit
 
 import GeoJSONKit
 
-import GeoProjector
+@_exported import GeoProjector
 
 public struct GeoDrawer {
   
@@ -56,17 +56,15 @@ public struct GeoDrawer {
 extension GeoDrawer {
   
 #if canImport(AppKit)
-  typealias Color = NSColor
+  public typealias Color = NSColor
 #elseif canImport(UIKit)
-  typealias Color = UIColor
+  public typealias Color = UIColor
 #endif
   
-  enum Content {
+  public enum Content {
     case line(GeoJSON.LineString, stroke: Color)
     case polygon(GeoJSON.Polygon, fill: Color, stroke: Color? = nil)
     case circle(GeoJSON.Position, radius: Double, fill: Color, stroke: Color? = nil)
   }
-  
-
   
 }

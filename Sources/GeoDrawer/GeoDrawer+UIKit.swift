@@ -13,13 +13,12 @@ import UIKit
 extension GeoDrawer {
   
   func drawImage(_ contents: [Content], background: UIColor? = nil, size: CGSize) -> UIImage {
-    
     let format = UIGraphicsImageRendererFormat()
     format.opaque = true
     let bounds = CGRect(origin: .zero, size: size)
     let renderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
     let image = renderer.image { rendererContext in
-      self.drawImage(
+      self.draw(
         contents,
         mapBackground: (background ?? .systemBlue).cgColor,
         mapOutline: UIColor.black.cgColor,
@@ -29,7 +28,6 @@ extension GeoDrawer {
       )
     }
     return image
-    
   }
   
 }

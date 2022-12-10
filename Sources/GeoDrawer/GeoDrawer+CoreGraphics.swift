@@ -181,15 +181,17 @@ extension GeoDrawer {
 
 extension GeoDrawer {
   
-  func drawImage(_ contents: [Content], mapBackground: CGColor, mapOutline: CGColor? = nil, background: CGColor, size: CGSize, in context: CGContext) {
+  func draw(_ contents: [Content], mapBackground: CGColor, mapOutline: CGColor? = nil, background: CGColor? = nil, size: CGSize, in context: CGContext) {
     
     let bounds = CGRect(origin: .zero, size: size)
 
 #warning("TODO: Break this up into first building shapes to draw, to share this with AppKit or drawing as an SVG.")
 
-    context.setFillColor(background)
-    context.addPath(.init(rect: bounds, transform: nil))
-    context.fillPath()
+    if let background {
+      context.setFillColor(background)
+      context.addPath(.init(rect: bounds, transform: nil))
+      context.fillPath()
+    }
 
     // Draw the background
     draw(projection.mapBounds, fillColor: mapBackground, in: context)
