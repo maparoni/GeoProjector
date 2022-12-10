@@ -15,6 +15,7 @@ import GeoJSONKit
 struct GeoMapView: View {
   enum ProjectionType: String, CaseIterable {
     case equirectangular
+    case cassini
     case mercator
     case gallPeters
     case equalEarth
@@ -63,6 +64,8 @@ struct GeoMapView: View {
       switch projectionType {
       case .equirectangular:
         projection = Projections.Equirectangular(reference: reference, phiOne: equirectangularPhiOne)
+      case .cassini:
+        projection = Projections.Cassini(reference: reference)
       case .mercator:
         projection = Projections.Mercator(reference: reference)
       case .gallPeters:
@@ -112,7 +115,7 @@ struct GeoMapView: View {
       switch model.projectionType {
       case .equirectangular:
         Slider(value: $model.equirectangularPhiOne, in: -90...90)
-      case .orthographic, .mercator, .gallPeters, .equalEarth, .azimuthal:
+      case .orthographic, .cassini, .mercator, .gallPeters, .equalEarth, .azimuthal:
         EmptyView()
       }
       

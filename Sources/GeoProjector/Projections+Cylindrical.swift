@@ -71,6 +71,33 @@ extension Projections {
     
   }
   
+  /// https://en.wikipedia.org/wiki/Cassini_projection
+  public struct Cassini: Projection {
+    public init(reference: Point) {
+      // custom reference not supported
+    }
+    
+    public let reference: Point = .init(x: 0, y: 0)
+    
+    public let projectionSize: Size =
+      .init(width: .pi, height: 2 * .pi)
+    
+    public let mapBounds: MapBounds = .rectangle
+    
+    public func willWrap(_ point: Point) -> Bool {
+      return point.x > 0.5 * .pi
+          && point.y < 0
+          && point.y > -0.25 * .pi
+    }
+
+    public func project(_ point: Point) -> Point? {
+      return .init(
+        x: asin(cos(point.phi) * sin(point.lambda)),
+        y: atan2(sin(point.phi), cos(point.phi) * cos(point.lambda))
+      )
+    }
+  }
+  
   /// Web standard
   /// https://en.wikipedia.org/wiki/Mercator_projection
   public struct Mercator: Projection {
