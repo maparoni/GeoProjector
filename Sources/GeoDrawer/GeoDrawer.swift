@@ -59,8 +59,22 @@ extension GeoDrawer {
   public typealias Color = NSColor
 #elseif canImport(UIKit)
   public typealias Color = UIColor
+#else
+  public struct Color {
+    public init(red: Double, green: Double, blue: Double, alpha: Double = 1) {
+      self.red = red
+      self.green = green
+      self.blue = blue
+      self.alpha = alpha
+    }
+    
+    public let red: Double
+    public let green: Double
+    public let blue: Double
+    public let alpha: Double
+  }
 #endif
-  
+
   public enum Content {
     case line(GeoJSON.LineString, stroke: Color)
     case polygon(GeoJSON.Polygon, fill: Color, stroke: Color? = nil)
