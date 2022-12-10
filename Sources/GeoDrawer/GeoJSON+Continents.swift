@@ -50,7 +50,7 @@ extension GeoDrawer.Content {
 #elseif canImport(UIKit)
     green = .systemGreen
 #else
-    green = Color(red: 0, green: 1, blue: 0)
+    green = GeoDrawer.Color(red: 0, green: 1, blue: 0)
 #endif
     return content(for: geoJSON, color: green)
   }
