@@ -5,9 +5,15 @@
 //  Created by Adrian Schönig on 2/12/2022.
 //
 
+#if canImport(AppKit)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
+
 import GeoJSONKit
 
-import GeoProjector
+@_exported import GeoProjector
 
 public struct GeoDrawer {
   
@@ -44,3 +50,35 @@ public struct GeoDrawer {
 //  }
 //
 //}
+
+// MARK: - Content
+
+extension GeoDrawer {
+  
+#if canImport(AppKit)
+  public typealias Color = NSColor
+#elseif canImport(UIKit)
+  public typealias Color = UIColor
+#else
+  public struct Color {
+    public init(red: Double, green: Double, blue: Double, alpha: Double = 1) {
+      self.red = red
+      self.green = green
+      self.blue = blue
+      self.alpha = alpha
+    }
+    
+    public let red: Double
+    public let green: Double
+    public let blue: Double
+    public let alpha: Double
+  }
+#endif
+
+  public enum Content {
+    case line(GeoJSON.LineString, stroke: Color)
+    case polygon(GeoJSON.Polygon, fill: Color, stroke: Color? = nil)
+    case circle(GeoJSON.Position, radius: Double, fill: Color, stroke: Color? = nil)
+  }
+  
+}

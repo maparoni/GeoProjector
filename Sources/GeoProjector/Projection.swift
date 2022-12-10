@@ -113,9 +113,16 @@ extension Projection {
       y: (size.height - canvasSize.height) / 2
     )
     
+    let flip: Double
+    #if os(macOS)
+    flip = 1
+    #else
+    flip = -1
+    #endif
+    
     let normalized = Point(
-      x: ((point.x      + projectionSize.width / 2) / projectionSize.width),
-      y: ((point.y * -1 + projectionSize.height / 2) / projectionSize.height)
+      x: ((point.x        + projectionSize.width / 2) / projectionSize.width),
+      y: ((point.y * flip + projectionSize.height / 2) / projectionSize.height)
     )
         
     return .init(
