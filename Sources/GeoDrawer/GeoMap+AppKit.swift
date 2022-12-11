@@ -79,6 +79,8 @@ public struct GeoMap: NSViewRepresentable {
   }
   
   public func updateNSView(_ nsView: GeoMapView, context: Context) {
+    nsView.contents = contents
+    nsView.projection = projection
   }
 
 }
