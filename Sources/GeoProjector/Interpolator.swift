@@ -7,21 +7,24 @@
 
 import Foundation
 
-enum Interpolator {
+public enum Interpolator {
   
-  static func interpolate(from a: Point, to b: Point, maxDiff: Double, projector: (Point) -> Point) -> [Point] {
+  public static func interpolate(from a: Point, to b: Point, maxDiff: Double, projector: (Point) -> Point?) -> [(Point, Point)] {
     let diffSquared = maxDiff * maxDiff
     let c = a.halfway(to: b)
-    let a_proj = projector(a)
-    let b_proj = projector(b)
+    guard
+      let a_proj = projector(a),
+      let b_proj = projector(b),
+      let c_proj = projector(c)
+    else { return [] }
+    
     let c_triv = a_proj.halfway(to: b_proj)
-    let c_proj = projector(c)
     let distanceSquared = c_proj.distanceSquared(to: c_triv)
     guard distanceSquared > diffSquared else { return [] }
     
     let lefty = interpolate(from: a, to: c, maxDiff: maxDiff, projector: projector)
     let righty = interpolate(from: c, to: b, maxDiff: maxDiff, projector: projector)
-    return lefty + [c_proj] + righty
+    return lefty + [(c, c_proj)] + righty
   }
   
 }

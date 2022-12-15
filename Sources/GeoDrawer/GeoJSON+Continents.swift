@@ -7,6 +7,12 @@
 
 import GeoJSONKit
 
+#if canImport(AppKit)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
+
 extension GeoJSON.GeometryObject {
   public var geometries: [GeoJSON.Geometry] {
     switch self {
@@ -46,9 +52,9 @@ extension GeoDrawer.Content {
     
     let green: GeoDrawer.Color
 #if canImport(AppKit)
-    green = .systemGreen
+    green = NSColor.systemGreen.cgColor
 #elseif canImport(UIKit)
-    green = .systemGreen
+    green = UIColor.systemGreen.cgColor
 #else
     green = GeoDrawer.Color(red: 0, green: 1, blue: 0)
 #endif

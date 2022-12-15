@@ -185,7 +185,7 @@ extension GeoDrawer {
     
     let bounds = CGRect(origin: .zero, size: size)
 
-#warning("TODO: Break this up into first building shapes to draw, to share this with AppKit or drawing as an SVG.")
+#warning("TODO: Break this up into first building shapes to draw, to share this with drawing as an SVG.")
 
     if let background {
       context.setFillColor(background)
@@ -200,11 +200,11 @@ extension GeoDrawer {
     for content in contents {
       switch content {
       case let .circle(position, radius, fill, stroke):
-        drawCircle(position, radius: radius, fillColor: fill.cgColor, strokeColor: stroke?.cgColor, in: context)
+        drawCircle(position, radius: radius, fillColor: fill, strokeColor: stroke, in: context)
       case let .line(line, stroke):
-        draw(line, strokeColor: stroke.cgColor, in: context)
+        draw(line, strokeColor: stroke, in: context)
       case let .polygon(polygon, fill, stroke):
-        draw(polygon, fillColor: fill.cgColor, strokeColor: stroke?.cgColor, frame: bounds, in: context)
+        draw(polygon, fillColor: fill, strokeColor: stroke, frame: bounds, in: context)
       }
     }
     

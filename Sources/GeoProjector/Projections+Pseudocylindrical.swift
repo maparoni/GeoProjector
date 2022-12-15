@@ -50,7 +50,7 @@ extension Projections {
       let boundPoints = zip(inputCorners.dropLast(), inputCorners.dropFirst())
         .reduce(into: [Point]()) { acc, next in
           acc.append(Self.project(next.0))
-          acc.append(contentsOf: Interpolator.interpolate(from: next.0, to: next.1, maxDiff: 0.0025, projector: Self.project(_:)))
+          acc.append(contentsOf: Interpolator.interpolate(from: next.0, to: next.1, maxDiff: 0.0025, projector: Self.project(_:)).map(\.1))
           acc.append(Self.project(next.1))
         }
       self.mapBounds = .bezier(boundPoints)

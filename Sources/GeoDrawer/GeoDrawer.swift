@@ -5,10 +5,8 @@
 //  Created by Adrian Schönig on 2/12/2022.
 //
 
-#if canImport(AppKit)
-import AppKit
-#elseif canImport(UIKit)
-import UIKit
+#if canImport(CoreGraphics)
+import CoreGraphics
 #endif
 
 import GeoJSONKit
@@ -55,10 +53,8 @@ public struct GeoDrawer {
 
 extension GeoDrawer {
   
-#if canImport(AppKit)
-  public typealias Color = NSColor
-#elseif canImport(UIKit)
-  public typealias Color = UIColor
+#if canImport(CoreGraphics)
+  public typealias Color = CGColor
 #else
   public struct Color {
     public init(red: Double, green: Double, blue: Double, alpha: Double = 1) {
@@ -81,4 +77,55 @@ extension GeoDrawer {
     case circle(GeoJSON.Position, radius: Double, fill: Color, stroke: Color? = nil)
   }
   
+}
+
+// MARK: - Line helper
+
+extension GeoDrawer {
+  
+  /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
+  func convertLine(_ positions: [GeoJSON.Position]) -> [[Point]] {
+    
+    // 1. Turn degrees into radians
+    let unprojected = positions.map { Point(x: $0.longitude.toRadians(), y: $0.latitude.toRadians()) }
+    
+    // 2. Project pairs and interpolate between them, which is necessary if
+    //    we can't just draw a line between the two projected points as the
+    //    projection itself should be curved.
+    let projected = zip(unprojected.dropLast(), unprojected.dropFirst())
+      .reduce(into: [(Point, Point)]()) { acc, next in
+        if let start = projection.project(next.0) {
+          acc.append((next.0, start))
+        }
+        acc.append(contentsOf: Interpolator.interpolate(from: next.0, to: next.1, maxDiff: 0.0025, projector: projection.project(_:)))
+        if let end = projection.project(next.1) {
+          acc.append((next.1, end))
+        }
+      }
+    
+    // 3. Now translate the projected points into point coordinates to draw
+    let converted = projected
+      .map { unproj, projected in
+        return (projection.translate(projected, to: size), projection.willWrap(unproj))
+      }
+
+    // 4. Lastly split them up according to whether they were wrapped around
+    //    the edge of the projection to the other side (or hidden).
+    var result: [[Point]] = []
+    var wip: ([Point], Bool) = ([], false)
+    for (point, wrap) in converted {
+      if wrap == wip.1 {
+        wip.0.append(point)
+      } else {
+        if !wip.0.isEmpty {
+          result.append(wip.0)
+        }
+        wip = ([point], wrap)
+      }
+    }
+    if !wip.0.isEmpty {
+      result.append(wip.0)
+    }
+    return result
+  }
 }
