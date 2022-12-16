@@ -9,6 +9,15 @@ import Foundation
 
 public enum Interpolator {
   
+  /// Interpolates from a to b using the provided projector method, adding new points whenever the
+  /// projected point differs more than `maxDiff` from the straight-line from a to b
+  ///
+  /// - Parameters:
+  ///   - a: Start point
+  ///   - b: End point
+  ///   - maxDiff: Maximum distance
+  ///   - projector: Projector handler that should return a projected point for a raw point
+  /// - Returns: List of (unprojected, projected) pairs to add in between a and b
   public static func interpolate(from a: Point, to b: Point, maxDiff: Double, projector: (Point) -> Point?) -> [(Point, Point)] {
     let pointDistance = a.distanceSquared(to: b)
     let diffSquared = maxDiff * maxDiff

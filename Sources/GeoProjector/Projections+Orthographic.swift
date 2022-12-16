@@ -38,6 +38,11 @@ extension Projections {
       )
     }
     
+    public func willWrap(_ point: Point) -> Bool {
+      let adjusted = point.x - reference.x
+      return adjusted < .pi * -1 || adjusted > .pi
+    }
+    
     /// Kudos to https://en.wikipedia.org/wiki/Orthographic_map_projection
     ///
     /// > Latitudes beyond the range of the map should be clipped by calculating the angular distance c
