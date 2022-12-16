@@ -16,8 +16,8 @@ public struct Point: Equatable {
     self.y = y
   }
   
-  public let x: Double
-  public let y: Double
+  public var x: Double
+  public var y: Double
   
   var lambda: Double { x }
   var phi: Double { y }
@@ -31,8 +31,8 @@ public struct Size: Equatable {
     self.height = height
   }
   
-  public let width: Double
-  public let height: Double
+  public var width: Double
+  public var height: Double
 }
 
 public enum MapBounds {

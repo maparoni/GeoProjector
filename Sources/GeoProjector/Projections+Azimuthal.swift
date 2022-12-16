@@ -55,6 +55,7 @@ extension Projections {
     
     private func k(_ point: Point) -> Double {
       let c = self.c(point)
+      guard c != 0 else { return 0 }
       return c / sin(c)
     }
 

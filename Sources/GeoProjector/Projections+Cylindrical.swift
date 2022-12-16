@@ -85,9 +85,9 @@ extension Projections {
     public let mapBounds: MapBounds = .rectangle
     
     public func willWrap(_ point: Point) -> Bool {
-      return point.x > 0.5 * .pi
-          && point.y < 0
-          && point.y > -0.25 * .pi
+      return (point.x > .pi / 2  && point.y < 0)
+          || (point.x < -.pi / 2 && point.y < 0)
+          
     }
 
     public func project(_ point: Point) -> Point? {
@@ -101,6 +101,8 @@ extension Projections {
   /// Web standard
   /// https://en.wikipedia.org/wiki/Mercator_projection
   public struct Mercator: Projection {
+    private static let maxLat = 85.051129.toRadians()
+    
     public init(reference: Point) {
       self.reference = reference
     }
@@ -117,8 +119,9 @@ extension Projections {
     }
 
     public func project(_ point: Point) -> Point? {
-      let adjusted = Projections.adjust(point, reference: reference)
-
+      var adjusted = Projections.adjust(point, reference: reference)
+      adjusted.y = min(Self.maxLat, max(Self.maxLat * -1, adjusted.y))
+      
       return .init(
         x: adjusted.x,
         y: log(tan(.pi / 4 + adjusted.y / 2))
