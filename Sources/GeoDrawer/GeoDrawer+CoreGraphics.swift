@@ -18,9 +18,7 @@ extension GeoDrawer {
   
   /// Draws the line into the current context
   public func draw(_ line: GeoJSON.LineString, strokeColor: CGColor, in context: CGContext) {
-    let converted = line.positions.compactMap(converter)
-    let grouped = Dictionary(grouping: converted, by: \.1).mapValues { $0.map(\.0) }
-    for points in grouped.values {
+    for points in convertLine(line.positions) {
       
       let path = CGMutablePath()
       path.move(to: points[0].cgPoint)
@@ -40,14 +38,11 @@ extension GeoDrawer {
   }
   
   public func draw(_ polygon: GeoJSON.Polygon, fillColor: CGColor? = nil, strokeColor: CGColor? = nil, frame: CGRect, in context: CGContext) {
-    let converted = polygon.exterior.positions.compactMap(converter)
-    
     // In some projections such as Azimuthal, we might need to colour a cut-out
     // rather than the projected polygon.
     let invert: Bool = invertCheck?(polygon) ?? false
     
-    let grouped = Dictionary(grouping: converted, by: \.1).mapValues { $0.map(\.0) }
-    for points in grouped.values {
+    for points in convertLine(polygon.exterior.positions) {
       
       let path = CGMutablePath()
       path.move(to: points[0].cgPoint)
@@ -66,12 +61,11 @@ extension GeoDrawer {
         rect.addLine(to: CGPoint(x: frame.maxX, y: frame.minY))
         
         for interior in polygon.interiors {
-          let interiorPoints = interior.positions.compactMap(converter).map(\.0)
-          guard !interiorPoints.isEmpty else { continue }
-          
-          rect.move(to: interiorPoints[0].cgPoint)
-          for point in interiorPoints[1...] {
-            rect.addLine(to: point.cgPoint)
+          for interiorPoints in convertLine(interior.positions) {
+            rect.move(to: interiorPoints[0].cgPoint)
+            for point in interiorPoints[1...] {
+              rect.addLine(to: point.cgPoint)
+            }
           }
         }
         

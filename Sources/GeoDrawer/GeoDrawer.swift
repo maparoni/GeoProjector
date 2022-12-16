@@ -91,7 +91,8 @@ extension GeoDrawer {
     
     // 2. Project pairs and interpolate between them, which is necessary if
     //    we can't just draw a line between the two projected points as the
-    //    projection itself should be curved.
+    //    projection itself should be curved or it might not cover both
+    //    endpoints.
     let projected = zip(unprojected.dropLast(), unprojected.dropFirst())
       .reduce(into: [(Point, Point)]()) { acc, next in
         if let start = projection.project(next.0) {
