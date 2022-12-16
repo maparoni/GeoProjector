@@ -83,6 +83,12 @@ extension GeoDrawer {
 
 extension GeoDrawer {
   
+  private enum Grouping: Equatable {
+    case wrapped
+    case notWrapped
+    case notProjected
+  }
+  
   /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
   func convertLine(_ positions: [GeoJSON.Position]) -> [[Point]] {
     
@@ -94,39 +100,79 @@ extension GeoDrawer {
     //    projection itself should be curved or it might not cover both
     //    endpoints.
     let projected = zip(unprojected.dropLast(), unprojected.dropFirst())
-      .reduce(into: [(Point, Point)]()) { acc, next in
-        if let start = projection.project(next.0) {
-          acc.append((next.0, start))
-        }
+      .reduce(into: [(Point, Point?)]()) { acc, next in
+        acc.append((next.0, projection.project(next.0)))
         acc.append(contentsOf: Interpolator.interpolate(from: next.0, to: next.1, maxDiff: 0.0025, projector: projection.project(_:)))
-        if let end = projection.project(next.1) {
-          acc.append((next.1, end))
-        }
+        acc.append((next.1, projection.project(next.1)))
       }
     
     // 3. Now translate the projected points into point coordinates to draw
     let converted = projected
-      .map { unproj, projected in
-        return (projection.translate(projected, to: size), projection.willWrap(unproj))
+      .map { (unproj, projected) -> (Point, Point?, Grouping) in
+        if let projected {
+          return (unproj, projection.translate(projected, to: size), projection.willWrap(unproj) ? .wrapped : .notWrapped)
+        } else {
+          return (unproj, nil, .notProjected)
+        }
       }
 
     // 4. Lastly split them up according to whether they were wrapped around
     //    the edge of the projection to the other side (or hidden).
-    var result: [[Point]] = []
-    var wip: ([Point], Bool) = ([], false)
-    for (point, wrap) in converted {
-      if wrap == wip.1 {
-        wip.0.append(point)
-      } else {
-        if !wip.0.isEmpty {
-          result.append(wip.0)
+    var wraps: [(Point, Point)] = []
+    var unwraps: [(Point, Point)] = []
+    var wip: ([(Point, Point)], Grouping) = ([], .notProjected)
+    for (unproj, proj, group) in converted {
+      if group == wip.1 {
+        if let proj {
+          wip.0.append((unproj, proj))
         }
-        wip = ([point], wrap)
+        
+      } else {
+        // We got to a new group
+        if !wip.0.isEmpty {
+          switch wip.1 {
+          case .notWrapped:
+            unwraps = wip.0
+          case .wrapped:
+            wraps = wip.0
+          case .notProjected:
+            break
+          }
+        }
+          
+        var new: [(Point, Point)]
+        switch group {
+        case .notWrapped:
+          new = unwraps
+        case .wrapped:
+          new = wraps
+        case .notProjected:
+          new = []
+        }
+
+        if let last = new.last?.0 {
+          // When "resuming" the same group, connect with the previous points
+          // in the group, but interpolate again.
+          let interpolated = Interpolator.interpolate(from: last, to: unproj, maxDiff: 0.0025, projector: projection.project(_:))
+          let translated = interpolated.map { ($0.0, projection.translate($0.1, to: size)) }
+          new.append(contentsOf: translated)
+        }
+        if let proj {
+          new.append((unproj, proj))
+        }
+        wip = (new, group)
       }
     }
     if !wip.0.isEmpty {
-      result.append(wip.0)
+      switch wip.1 {
+      case .notWrapped:
+        unwraps = wip.0
+      case .wrapped:
+        wraps = wip.0
+      case .notProjected:
+        break
+      }
     }
-    return result
+    return [wraps.map(\.1), unwraps.map(\.1)].filter { !$0.isEmpty }
   }
 }
