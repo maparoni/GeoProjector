@@ -10,6 +10,7 @@ import AppKit
 import SwiftUI
 
 import GeoProjector
+import GeoJSONKit
 
 public class GeoMapView: NSView {
   public var contents: [GeoDrawer.Content] = [] {
@@ -17,6 +18,13 @@ public class GeoMapView: NSView {
   }
   
   public var projection: Projection = Projections.Equirectangular() {
+    didSet {
+      _drawer = nil
+      setNeedsDisplay(bounds)
+    }
+  }
+  
+  public var zoomTo: GeoJSON.BoundingBox? = nil {
     didSet {
       _drawer = nil
       setNeedsDisplay(bounds)
@@ -35,7 +43,11 @@ public class GeoMapView: NSView {
     if let _drawer {
       return _drawer
     } else {
-      let drawer = GeoDrawer(size: .init(width: frame.size.width, height: frame.size.height), projection: projection)
+      let drawer = GeoDrawer(
+        size: .init(width: frame.size.width, height: frame.size.height),
+        projection: projection,
+        zoomTo: zoomTo
+      )
       _drawer = drawer
       return drawer
     }
@@ -60,14 +72,17 @@ public class GeoMapView: NSView {
 
 @available(macOS 10.15, *)
 public struct GeoMap: NSViewRepresentable {
-  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular()) {
+  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil) {
     self.contents = contents
     self.projection = projection
+    self.zoomTo = zoomTo
   }
   
   public var contents: [GeoDrawer.Content] = []
   
   public var projection: Projection = Projections.Equirectangular()
+  
+  public var zoomTo: GeoJSON.BoundingBox? = nil
   
   public typealias NSViewType = GeoMapView
   
@@ -75,12 +90,14 @@ public struct GeoMap: NSViewRepresentable {
     let view = GeoMapView()
     view.contents = contents
     view.projection = projection
+    view.zoomTo = zoomTo
     return view
   }
   
-  public func updateNSView(_ nsView: GeoMapView, context: Context) {
-    nsView.contents = contents
-    nsView.projection = projection
+  public func updateNSView(_ view: GeoMapView, context: Context) {
+    view.contents = contents
+    view.projection = projection
+    view.zoomTo = zoomTo
   }
 
 }

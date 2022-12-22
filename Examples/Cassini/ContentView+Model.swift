@@ -58,6 +58,8 @@ extension ContentView {
       didSet { updateProjection() }
     }
     
+    @Published var zoomTo: GeoJSON.BoundingBox?
+    
     func updateProjection() {
       let reference = GeoJSON.Position(latitude: refLat, longitude: refLng)
       
@@ -85,6 +87,25 @@ extension ContentView {
         .flatMap { layer in
           layer.contents.map { $0.settingColor(layer.color) }
         }
+    }
+    
+    func zoom(to layer: Layer) {
+      let positions = layer.contents.reduce(into: [GeoJSON.Position]()) { acc, next in
+        switch next {
+        case .circle(let position, _, _, _):
+          acc.append(position)
+        case .line(let line, _):
+          acc.append(contentsOf: line.positions)
+        case .polygon(let polygon, _, _):
+          acc.append(contentsOf: polygon.exterior.positions)
+        }
+      }
+      
+      if positions.isEmpty {
+        zoomTo = nil
+      } else {
+        zoomTo = .init(positions: positions, allowSpanningAntimeridian: true)
+      }
     }
   }
   
