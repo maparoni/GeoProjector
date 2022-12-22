@@ -15,18 +15,57 @@ import GeoJSONKit
 
 public struct GeoDrawer {
   
-  public init(/*boundingBox: GeoJSON.BoundingBox, */ size: Size, projection: Projection) {
+  public init(size: Size, projection: Projection, zoomTo: GeoJSON.BoundingBox? = nil) {
     self.projection = projection
     self.size = size
     
+    let zoomToRect: Rect? = zoomTo.flatMap { box in
+      let positions = [
+        GeoJSON.Position(latitude: box.northEasterlyLatitude, longitude: box.southWesterlyLongitude),
+        GeoJSON.Position(latitude: box.northEasterlyLatitude, longitude: box.northEasterlyLongitude),
+        GeoJSON.Position(latitude: box.southWesterlyLatitude, longitude: box.northEasterlyLongitude),
+        GeoJSON.Position(latitude: box.southWesterlyLatitude, longitude: box.southWesterlyLongitude),
+      ]
+      
+      let lines = [
+        GeoJSON.LineString(positions: [positions[0], positions[1]]),
+        GeoJSON.LineString(positions: [positions[1], positions[2]]),
+        GeoJSON.LineString(positions: [positions[2], positions[3]]),
+        GeoJSON.LineString(positions: [positions[3], positions[0]]),
+      ]
+      
+      return lines.reduce(nil) { acc, next in
+        let points = Self.projectLine(next.positions, projection: projection).compactMap(\.1)
+        if var acc {
+          for point in points {
+            acc.absorb(point)
+          }
+          return acc
+        } else if let first = points.first {
+          var rect = Rect(origin: first, size: .zero)
+          for point in points.dropFirst() {
+            rect.absorb(point)
+          }
+          return rect
+        } else {
+          return nil
+        }
+      }
+      
+    }
+    
+    self.zoomTo = zoomToRect
+    
     self.converter = { position -> (Point, Bool)? in
-      return projection.point(for: position, size: size)
+      return projection.point(for: position, zoomTo: zoomToRect, size: size)
     }
   }
   
-  let projection: Projection
+  public let projection: Projection
   
-  let size: Size
+  public let size: Size
+  
+  public let zoomTo: Rect?
     
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection.invertCheck }
   
@@ -89,8 +128,7 @@ extension GeoDrawer {
     case notProjected
   }
   
-  /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
-  func convertLine(_ positions: [GeoJSON.Position]) -> [[Point]] {
+  private static func projectLine(_ positions: [GeoJSON.Position], projection: Projection) -> [(Point, Point?)] {
     
     // 1. Turn degrees into radians
     let unprojected = positions.map { Point(x: $0.longitude.toRadians(), y: $0.latitude.toRadians()) }
@@ -106,11 +144,18 @@ extension GeoDrawer {
         acc.append((next.1, projection.project(next.1)))
       }
     
+    return projected
+  }
+  
+  /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
+  func convertLine(_ positions: [GeoJSON.Position]) -> [[Point]] {
+    let projected = Self.projectLine(positions, projection: projection)
+    
     // 3. Now translate the projected points into point coordinates to draw
     let converted = projected
       .map { (unproj, projected) -> (Point, Point?, Grouping) in
         if let projected {
-          return (unproj, projection.translate(projected, to: size), projection.willWrap(unproj) ? .wrapped : .notWrapped)
+          return (unproj, projection.translate(projected, zoomTo: zoomTo, to: size), projection.willWrap(unproj) ? .wrapped : .notWrapped)
         } else {
           return (unproj, nil, .notProjected)
         }
@@ -154,7 +199,7 @@ extension GeoDrawer {
           // When "resuming" the same group, connect with the previous points
           // in the group, but interpolate again.
           let interpolated = Interpolator.interpolate(from: last, to: unproj, maxDiff: 0.0025, projector: projection.project(_:))
-          let translated = interpolated.map { ($0.0, projection.translate($0.1, to: size)) }
+          let translated = interpolated.map { ($0.0, projection.translate($0.1, zoomTo: zoomTo, to: size)) }
           new.append(contentsOf: translated)
         }
         if let proj {

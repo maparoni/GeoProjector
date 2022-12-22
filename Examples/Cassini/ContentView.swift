@@ -36,6 +36,17 @@ struct ContentView_macOS: View {
               Text(layer.name)
               ColorPicker("", selection: $layer.color)
             }
+            .contextMenu {
+              Button("Zoom") {
+                model.zoom(to: layer)
+              }
+              
+              Button("Delete", role: .destructive) {
+                if let index = model.layers.firstIndex(where: { $0.id == layer.id }) {
+                  model.layers.remove(at: index)
+                }
+              }
+            }
           }
           .onDrop(of: ["public.json"], isTargeted: nil) { providers in
             print("Got \(providers)")
@@ -99,7 +110,8 @@ struct ContentView_macOS: View {
       VStack {
         GeoMap(
           contents: model.visibleContents,
-          projection: model.projection
+          projection: model.projection,
+          zoomTo: model.zoomTo
         )
       }
       .padding()
