@@ -109,3 +109,10 @@ precious resources:
   some projections of his own making.
 - The comprehensive description of [map projections](https://en.wikipedia.org/wiki/Map_projection)
   on Wikipedia.
+
+## License
+
+This library is published under the GNU Lesser General Public License 2.1 license. This means
+that if you use and modify this library, you have to make your changes also available under the
+same license (or a compatible one). As long as you comply with this and keep copyright notices
+intact, you can however use the library in closed source projects.
