@@ -1,9 +1,8 @@
-# GeoProjector (work-in-progress)
+# GeoProjector
 
 This is a Swift-only library to calculate and draw map projections.
 
-**This is in very early days, has some glitches, and is not yet stable. So do not
- use it yet except to satisfy some curiousity that you have.**
+**This is in early days, has some glitches, and is not yet stable.**
 
 - GeoProjector: Map projections, turning coordinates into projected coordinates
   and into screen coordinates.
