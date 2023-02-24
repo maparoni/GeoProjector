@@ -60,4 +60,21 @@ public struct Rect: Equatable {
       size.height = point.y - origin.y
     }
   }
+  
+  public func scaled(x: Double, y: Double) -> Rect {
+    var updated = self
+    updated.scale(x: x, y: y)
+    return updated
+  }
+  
+  public mutating func scale(x: Double, y: Double) {
+    let newSize = Size(width: size.width * x, height: size.height * y)
+    let offset = Point(
+      x: (newSize.width - size.width) / 2,
+      y: (newSize.height - size.height) / 2
+    )
+    self.size = newSize
+    self.origin.x -= offset.x
+    self.origin.y -= offset.y
+  }
 }

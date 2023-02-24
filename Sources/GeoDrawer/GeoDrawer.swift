@@ -34,7 +34,7 @@ public struct GeoDrawer {
         GeoJSON.LineString(positions: [positions[3], positions[0]]),
       ]
       
-      return lines.reduce(nil) { acc, next in
+      let bounds: Rect? = lines.reduce(nil) { acc, next in
         let points = Self.projectLine(next.positions, projection: projection).compactMap(\.1)
         if var acc {
           for point in points {
@@ -51,7 +51,17 @@ public struct GeoDrawer {
           return nil
         }
       }
+      guard let bounds else { return nil }
       
+      // Zoom out a whole bit to give some global context
+      let scaled = bounds.scaled(x: 5, y: 5)
+      
+      // But don't zoom out further than the projection size
+      if scaled.size.width < projection.projectionSize.width, scaled.size.height < projection.projectionSize.height {
+        return scaled
+      } else {
+        return nil
+      }
     }
     
     self.zoomTo = zoomToRect
@@ -71,22 +81,6 @@ public struct GeoDrawer {
   
   let converter: (GeoJSON.Position) -> (Point, Bool)?
 }
-
-//extension GeoDrawer {
-//
-//  public static func suggestedBoundingBox(for positions: [GeoJSON.Position], allowSpanningAntimeridian: Bool = true) -> GeoJSON.BoundingBox {
-//    let smallestBoundingBox = GeoJSON.BoundingBox(positions: positions, allowSpanningAntimeridian: allowSpanningAntimeridian)
-//    let fittedBoundingBox: GeoJSON.BoundingBox
-//    if smallestBoundingBox.spansAntimeridian, smallestBoundingBox.longitudeSpan > 180 {
-//      fittedBoundingBox = GeoJSON.BoundingBox(positions: positions, allowSpanningAntimeridian: false)
-//    } else {
-//      fittedBoundingBox = smallestBoundingBox
-//    }
-//    let paddedBoundingBox = fittedBoundingBox.scale(x: 1.1, y: 1.1)
-//    return paddedBoundingBox
-//  }
-//
-//}
 
 // MARK: - Content
 
