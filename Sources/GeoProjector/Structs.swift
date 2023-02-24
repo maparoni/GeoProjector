@@ -78,3 +78,19 @@ public struct Rect: Equatable {
     self.origin.y -= offset.y
   }
 }
+
+public struct EdgeInsets: Equatable {
+  public static let zero = EdgeInsets()
+  
+  public init(top: Double = 0, left: Double = 0, bottom: Double = 0, right: Double = 0) {
+    self.top = top
+    self.left = left
+    self.bottom = bottom
+    self.right = right
+  }
+  
+  public var top: Double = 0
+  public var left: Double = 0
+  public var bottom: Double = 0
+  public var right: Double = 0
+}

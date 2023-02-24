@@ -15,9 +15,10 @@ import GeoJSONKit
 
 public struct GeoDrawer {
   
-  public init(size: Size, projection: Projection, zoomTo: GeoJSON.BoundingBox? = nil) {
+  public init(size: Size, projection: Projection, zoomTo: GeoJSON.BoundingBox? = nil, insets: EdgeInsets = .zero) {
     self.projection = projection
     self.size = size
+    self.insets = insets
     
     let zoomToRect: Rect? = zoomTo.flatMap { box in
       let positions = [
@@ -76,6 +77,8 @@ public struct GeoDrawer {
   public let size: Size
   
   public let zoomTo: Rect?
+  
+  public let insets: EdgeInsets
     
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection.invertCheck }
   
@@ -149,7 +152,7 @@ extension GeoDrawer {
     let converted = projected
       .map { (unproj, projected) -> (Point, Point?, Grouping) in
         if let projected {
-          return (unproj, projection.translate(projected, zoomTo: zoomTo, to: size), projection.willWrap(unproj) ? .wrapped : .notWrapped)
+          return (unproj, projection.translate(projected, zoomTo: zoomTo, to: size, insets: insets), projection.willWrap(unproj) ? .wrapped : .notWrapped)
         } else {
           return (unproj, nil, .notProjected)
         }
@@ -193,7 +196,7 @@ extension GeoDrawer {
           // When "resuming" the same group, connect with the previous points
           // in the group, but interpolate again.
           let interpolated = Interpolator.interpolate(from: last, to: unproj, maxDiff: 0.0025, projector: projection.project(_:))
-          let translated = interpolated.map { ($0.0, projection.translate($0.1, zoomTo: zoomTo, to: size)) }
+          let translated = interpolated.map { ($0.0, projection.translate($0.1, zoomTo: zoomTo, to: size, insets: insets)) }
           new.append(contentsOf: translated)
         }
         if let proj {

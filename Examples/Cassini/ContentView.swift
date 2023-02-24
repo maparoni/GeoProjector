@@ -102,7 +102,7 @@ struct ContentView_macOS: View {
             }
             .frame(minWidth: 200)
 
-            TextField(value: $model.refLat, format: .number.precision(.fractionLength(2))) {
+            TextField(value: $model.refLat, format: .number.precision(.fractionLength(1))) {
               EmptyView()
             }
             .frame(maxWidth: 55)
@@ -115,11 +115,52 @@ struct ContentView_macOS: View {
             }
             .frame(minWidth: 200)
             
-            TextField(value: $model.refLng, format: .number.precision(.fractionLength(2))) {
+            TextField(value: $model.refLng, format: .number.precision(.fractionLength(1))) {
               EmptyView()
             }
             .frame(maxWidth: 55)
           }
+        }
+        
+        GroupBox("Edge Insets") {
+          HStack {
+            Spacer()
+            
+            TextField(value: $model.insets.top, format: .number.precision(.fractionLength(0))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
+            
+            Spacer()
+          }
+
+          HStack {
+            Spacer()
+            
+            TextField(value: $model.insets.left, format: .number.precision(.fractionLength(0))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
+
+            TextField(value: $model.insets.right, format: .number.precision(.fractionLength(0))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
+
+            Spacer()
+          }
+          
+          HStack {
+            Spacer()
+            
+            TextField(value: $model.insets.bottom, format: .number.precision(.fractionLength(0))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
+            
+            Spacer()
+          }
+
         }
       }
       .frame(maxWidth: 300)
@@ -129,6 +170,7 @@ struct ContentView_macOS: View {
           contents: model.visibleContents,
           projection: model.projection,
           zoomTo: model.zoomTo,
+          insets: model.insets,
           mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
           mapOutline: colorScheme == .dark ? .white : .black
         )

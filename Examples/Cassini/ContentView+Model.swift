@@ -61,6 +61,10 @@ extension ContentView {
       didSet { updateProjection() }
     }
     
+    @Published var insets: GeoProjector.EdgeInsets = .zero {
+      didSet { updateProjection() }
+    }
+    
     @Published var zoomTo: GeoJSON.BoundingBox?
     
     func updateProjection() {

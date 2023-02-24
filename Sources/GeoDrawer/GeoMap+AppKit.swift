@@ -30,7 +30,14 @@ public class GeoMapView: NSView {
       setNeedsDisplay(bounds)
     }
   }
-  
+
+  public var insets: GeoProjector.EdgeInsets = .zero {
+    didSet {
+      _drawer = nil
+      setNeedsDisplay(bounds)
+    }
+  }
+
   public var mapBackground: NSColor = .systemTeal {
     didSet {
       setNeedsDisplay(bounds)
@@ -59,7 +66,8 @@ public class GeoMapView: NSView {
       let drawer = GeoDrawer(
         size: .init(width: frame.size.width, height: frame.size.height),
         projection: projection,
-        zoomTo: zoomTo
+        zoomTo: zoomTo,
+        insets: insets
       )
       _drawer = drawer
       return drawer
@@ -86,10 +94,11 @@ public class GeoMapView: NSView {
 @available(macOS 10.15, *)
 public struct GeoMap: NSViewRepresentable {
   
-  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, mapBackground: NSColor? = nil, mapOutline: NSColor? = nil) {
+  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: NSColor? = nil, mapOutline: NSColor? = nil) {
     self.contents = contents
     self.projection = projection
     self.zoomTo = zoomTo
+    self.insets = insets
     self.mapBackground = mapBackground
     self.mapOutline = mapOutline
   }
@@ -99,6 +108,8 @@ public struct GeoMap: NSViewRepresentable {
   public var projection: Projection = Projections.Equirectangular()
   
   public var zoomTo: GeoJSON.BoundingBox? = nil
+  
+  public var insets: GeoProjector.EdgeInsets = .zero
   
   public var mapBackground: NSColor? = nil
   
@@ -111,6 +122,7 @@ public struct GeoMap: NSViewRepresentable {
     view.contents = contents
     view.projection = projection
     view.zoomTo = zoomTo
+    view.insets = insets
     if let mapBackground {
       view.mapBackground = mapBackground
     }
@@ -124,6 +136,7 @@ public struct GeoMap: NSViewRepresentable {
     view.contents = contents
     view.projection = projection
     view.zoomTo = zoomTo
+    view.insets = insets
     if let mapBackground {
       view.mapBackground = mapBackground
     }
