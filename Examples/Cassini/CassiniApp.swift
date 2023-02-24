@@ -29,17 +29,41 @@ import GeoDrawer
 @main
 struct CassiniApp: App {
   var body: some Scene {
+#if os(macOS)
     Window("Cassini", id: "main-window") {
-      ContentView(model: .init(layers: [
-        .init(
-          name: "Continents",
-          contents: try! GeoDrawer.Content.content(
-            for: GeoDrawer.Content.countries(),
-            color: .init(red: 0, green: 1, blue: 0, alpha: 0)
-          ),
-          color: NSColor.systemGreen.cgColor
-        )
-      ]))
+      windowContent
+    }
+#else
+    WindowGroup {
+      windowContent
+    }
+#endif
+  }
+    
+  var windowContent: some View {
+    ContentView(model: .init(layers: [
+      .init(
+        name: "Continents",
+        contents: try! GeoDrawer.Content.content(
+          for: GeoDrawer.Content.countries(),
+          color: CassiniApp.Colors.continents.cgColor
+        ),
+        color: CassiniApp.Colors.continents.cgColor
+      )
+    ]))
+  }
+}
+
+extension CassiniApp {
+  enum Colors {
+    case continents
+    
+    var cgColor: CGColor {
+#if os(macOS)
+      return NSColor.systemGreen.cgColor
+#else
+      return UIColor.systemGreen.cgColor
+#endif
     }
   }
 }

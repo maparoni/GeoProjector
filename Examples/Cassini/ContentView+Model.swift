@@ -31,7 +31,7 @@ import GeoDrawer
 
 extension ContentView {
   
-  enum ProjectionType: String, CaseIterable {
+  enum ProjectionType: String, CaseIterable, Identifiable {
     case equirectangular
     case cassini
     case mercator
@@ -39,6 +39,8 @@ extension ContentView {
     case equalEarth
     case orthographic
     case azimuthal
+    
+    var id: String { rawValue }
   }
   
   struct Layer: Identifiable {
