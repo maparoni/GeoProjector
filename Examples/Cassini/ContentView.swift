@@ -36,11 +36,25 @@ struct ContentView_macOS: View {
             HStack {
               Toggle("", isOn: $layer.visible)
               Text(layer.name)
+              
+              Spacer()
+              
+              if model.zoomTo?.1 == layer.id {
+                Image(systemName: "location.magnifyingglass")
+              }
+              
               ColorPicker("", selection: $layer.color)
+                .frame(maxWidth: 50)
             }
             .contextMenu {
-              Button("Zoom") {
-                model.zoom(to: layer)
+              if model.zoomTo?.1 == layer.id {
+                Button("Remove Zoom") {
+                  model.zoom(to: nil)
+                }
+              } else {
+                Button("Zoom") {
+                  model.zoom(to: layer)
+                }
               }
               
               Button("Delete", role: .destructive) {
@@ -169,7 +183,7 @@ struct ContentView_macOS: View {
         GeoMap(
           contents: model.visibleContents,
           projection: model.projection,
-          zoomTo: model.zoomTo,
+          zoomTo: model.zoomTo?.0,
           insets: model.insets,
           mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
           mapOutline: colorScheme == .dark ? .white : .black

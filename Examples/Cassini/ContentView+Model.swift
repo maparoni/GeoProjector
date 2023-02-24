@@ -65,7 +65,7 @@ extension ContentView {
       didSet { updateProjection() }
     }
     
-    @Published var zoomTo: GeoJSON.BoundingBox?
+    @Published var zoomTo: (GeoJSON.BoundingBox, Layer.ID)?
     
     func updateProjection() {
       let reference = GeoJSON.Position(latitude: refLat, longitude: refLng)
@@ -96,7 +96,12 @@ extension ContentView {
         }
     }
     
-    func zoom(to layer: Layer) {
+    func zoom(to layer: Layer?) {
+      guard let layer else {
+        zoomTo = nil
+        return
+      }
+      
       let positions = layer.contents.reduce(into: [GeoJSON.Position]()) { acc, next in
         switch next {
         case .circle(let position, _, _, _):
@@ -111,7 +116,7 @@ extension ContentView {
       if positions.isEmpty {
         zoomTo = nil
       } else {
-        zoomTo = .init(positions: positions, allowSpanningAntimeridian: true)
+        zoomTo = (.init(positions: positions, allowSpanningAntimeridian: true), layer.id)
       }
     }
   }
