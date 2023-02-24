@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreGraphics
+import SwiftUI
 
 import GeoJSONKit
 import GeoDrawer
@@ -35,22 +36,24 @@ extension ContentView {
     init(layers: [Layer] = []) {
       self.layers = layers
       self.projection = Projections.Orthographic()
-      self.projectionType = .orthographic
     }
     
     @Published var layers: [Layer]
     
     @Published var projection: any Projection
     
-    @Published var projectionType: ProjectionType {
+    @AppStorage("options.projection")
+    var projectionType: ProjectionType = .orthographic {
       didSet { updateProjection() }
     }
     
-    @Published var refLat: Double = 0 {
+    @AppStorage("options.reference.latitude")
+    var refLat: Double = 0 {
       didSet { updateProjection() }
     }
 
-    @Published var refLng: Double = 0 {
+    @AppStorage("options.reference.longitude")
+    var refLng: Double = 0 {
       didSet { updateProjection() }
     }
 

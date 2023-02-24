@@ -31,6 +31,19 @@ public class GeoMapView: NSView {
     }
   }
   
+  public var mapBackground: NSColor = .systemTeal {
+    didSet {
+      setNeedsDisplay(bounds)
+    }
+  }
+  
+  public var mapOutline: NSColor = .black {
+    didSet {
+      setNeedsDisplay(bounds)
+    }
+  }
+
+  
   public override var frame: NSRect {
     didSet {
       _drawer = nil
@@ -62,8 +75,8 @@ public class GeoMapView: NSView {
     // Use Core Graphics functions to draw the content of your view
     drawer.draw(
       contents,
-      mapBackground: NSColor.systemTeal.cgColor,
-      mapOutline: NSColor.black.cgColor,
+      mapBackground: mapBackground.cgColor,
+      mapOutline: mapOutline.cgColor,
       size: frame.size,
       in: context
     )
@@ -72,10 +85,13 @@ public class GeoMapView: NSView {
 
 @available(macOS 10.15, *)
 public struct GeoMap: NSViewRepresentable {
-  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil) {
+  
+  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, mapBackground: NSColor? = nil, mapOutline: NSColor? = nil) {
     self.contents = contents
     self.projection = projection
     self.zoomTo = zoomTo
+    self.mapBackground = mapBackground
+    self.mapOutline = mapOutline
   }
   
   public var contents: [GeoDrawer.Content] = []
@@ -84,6 +100,10 @@ public struct GeoMap: NSViewRepresentable {
   
   public var zoomTo: GeoJSON.BoundingBox? = nil
   
+  public var mapBackground: NSColor? = nil
+  
+  public var mapOutline: NSColor? = nil
+  
   public typealias NSViewType = GeoMapView
   
   public func makeNSView(context: Context) -> GeoMapView {
@@ -91,6 +111,12 @@ public struct GeoMap: NSViewRepresentable {
     view.contents = contents
     view.projection = projection
     view.zoomTo = zoomTo
+    if let mapBackground {
+      view.mapBackground = mapBackground
+    }
+    if let mapOutline {
+      view.mapOutline = mapOutline
+    }
     return view
   }
   
@@ -98,6 +124,12 @@ public struct GeoMap: NSViewRepresentable {
     view.contents = contents
     view.projection = projection
     view.zoomTo = zoomTo
+    if let mapBackground {
+      view.mapBackground = mapBackground
+    }
+    if let mapOutline {
+      view.mapOutline = mapOutline
+    }
   }
 
 }

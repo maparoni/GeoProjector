@@ -26,6 +26,8 @@ struct ContentView: View {
 struct ContentView_macOS: View {
   @ObservedObject var model: ContentView.Model
   
+  @Environment(\.colorScheme) var colorScheme
+  
   var body: some View {
     HSplitView {
       VStack {
@@ -93,16 +95,31 @@ struct ContentView_macOS: View {
         }
         
         GroupBox("Reference") {
-          Slider(value: $model.refLat, in: -90...90) {
-            Text("Latitude")
-              .frame(width: 100, alignment: .trailing)
+          HStack {
+            Slider(value: $model.refLat, in: -90...90) {
+              Text("Latitude")
+                .frame(width: 100, alignment: .trailing)
+            }
+            .frame(minWidth: 200)
+
+            TextField(value: $model.refLat, format: .number.precision(.fractionLength(2))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
           }
-          .frame(minWidth: 200)
-          Slider(value: $model.refLng, in: -180...180) {
-            Text("Longitude")
-              .frame(width: 100, alignment: .trailing)
+
+          HStack {
+            Slider(value: $model.refLng, in: -180...180) {
+              Text("Longitude")
+                .frame(width: 100, alignment: .trailing)
+            }
+            .frame(minWidth: 200)
+            
+            TextField(value: $model.refLng, format: .number.precision(.fractionLength(2))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
           }
-          .frame(minWidth: 200)
         }
       }
       .frame(maxWidth: 300)
@@ -111,7 +128,9 @@ struct ContentView_macOS: View {
         GeoMap(
           contents: model.visibleContents,
           projection: model.projection,
-          zoomTo: model.zoomTo
+          zoomTo: model.zoomTo,
+          mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
+          mapOutline: colorScheme == .dark ? .white : .black
         )
       }
       .padding()
