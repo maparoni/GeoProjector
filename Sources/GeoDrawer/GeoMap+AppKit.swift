@@ -10,6 +10,7 @@ import AppKit
 import SwiftUI
 
 import GeoProjector
+import GeoJSONKit
 
 public class GeoMapView: NSView {
   public var contents: [GeoDrawer.Content] = [] {
@@ -23,6 +24,33 @@ public class GeoMapView: NSView {
     }
   }
   
+  public var zoomTo: GeoJSON.BoundingBox? = nil {
+    didSet {
+      _drawer = nil
+      setNeedsDisplay(bounds)
+    }
+  }
+
+  public var insets: GeoProjector.EdgeInsets = .zero {
+    didSet {
+      _drawer = nil
+      setNeedsDisplay(bounds)
+    }
+  }
+
+  public var mapBackground: NSColor = .systemTeal {
+    didSet {
+      setNeedsDisplay(bounds)
+    }
+  }
+  
+  public var mapOutline: NSColor = .black {
+    didSet {
+      setNeedsDisplay(bounds)
+    }
+  }
+
+  
   public override var frame: NSRect {
     didSet {
       _drawer = nil
@@ -35,7 +63,12 @@ public class GeoMapView: NSView {
     if let _drawer {
       return _drawer
     } else {
-      let drawer = GeoDrawer(size: .init(width: frame.size.width, height: frame.size.height), projection: projection)
+      let drawer = GeoDrawer(
+        size: .init(width: frame.size.width, height: frame.size.height),
+        projection: projection,
+        zoomTo: zoomTo,
+        insets: insets
+      )
       _drawer = drawer
       return drawer
     }
@@ -50,8 +83,8 @@ public class GeoMapView: NSView {
     // Use Core Graphics functions to draw the content of your view
     drawer.draw(
       contents,
-      mapBackground: NSColor.systemTeal.cgColor,
-      mapOutline: NSColor.black.cgColor,
+      mapBackground: mapBackground.cgColor,
+      mapOutline: mapOutline.cgColor,
       size: frame.size,
       in: context
     )
@@ -60,14 +93,27 @@ public class GeoMapView: NSView {
 
 @available(macOS 10.15, *)
 public struct GeoMap: NSViewRepresentable {
-  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular()) {
+  
+  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: NSColor? = nil, mapOutline: NSColor? = nil) {
     self.contents = contents
     self.projection = projection
+    self.zoomTo = zoomTo
+    self.insets = insets
+    self.mapBackground = mapBackground
+    self.mapOutline = mapOutline
   }
   
   public var contents: [GeoDrawer.Content] = []
   
   public var projection: Projection = Projections.Equirectangular()
+  
+  public var zoomTo: GeoJSON.BoundingBox? = nil
+  
+  public var insets: GeoProjector.EdgeInsets = .zero
+  
+  public var mapBackground: NSColor? = nil
+  
+  public var mapOutline: NSColor? = nil
   
   public typealias NSViewType = GeoMapView
   
@@ -75,12 +121,28 @@ public struct GeoMap: NSViewRepresentable {
     let view = GeoMapView()
     view.contents = contents
     view.projection = projection
+    view.zoomTo = zoomTo
+    view.insets = insets
+    if let mapBackground {
+      view.mapBackground = mapBackground
+    }
+    if let mapOutline {
+      view.mapOutline = mapOutline
+    }
     return view
   }
   
-  public func updateNSView(_ nsView: GeoMapView, context: Context) {
-    nsView.contents = contents
-    nsView.projection = projection
+  public func updateNSView(_ view: GeoMapView, context: Context) {
+    view.contents = contents
+    view.projection = projection
+    view.zoomTo = zoomTo
+    view.insets = insets
+    if let mapBackground {
+      view.mapBackground = mapBackground
+    }
+    if let mapOutline {
+      view.mapOutline = mapOutline
+    }
   }
 
 }

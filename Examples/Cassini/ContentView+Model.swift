@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreGraphics
+import SwiftUI
 
 import GeoJSONKit
 import GeoDrawer
@@ -35,28 +36,36 @@ extension ContentView {
     init(layers: [Layer] = []) {
       self.layers = layers
       self.projection = Projections.Orthographic()
-      self.projectionType = .orthographic
     }
     
     @Published var layers: [Layer]
     
     @Published var projection: any Projection
     
-    @Published var projectionType: ProjectionType {
+    @AppStorage("options.projection")
+    var projectionType: ProjectionType = .orthographic {
       didSet { updateProjection() }
     }
     
-    @Published var refLat: Double = 0 {
+    @AppStorage("options.reference.latitude")
+    var refLat: Double = 0 {
       didSet { updateProjection() }
     }
 
-    @Published var refLng: Double = 0 {
+    @AppStorage("options.reference.longitude")
+    var refLng: Double = 0 {
       didSet { updateProjection() }
     }
 
     @Published var equirectangularPhiOne: Double = 0 {
       didSet { updateProjection() }
     }
+    
+    @Published var insets: GeoProjector.EdgeInsets = .zero {
+      didSet { updateProjection() }
+    }
+    
+    @Published var zoomTo: (GeoJSON.BoundingBox, Layer.ID)?
     
     func updateProjection() {
       let reference = GeoJSON.Position(latitude: refLat, longitude: refLng)
@@ -85,6 +94,30 @@ extension ContentView {
         .flatMap { layer in
           layer.contents.map { $0.settingColor(layer.color) }
         }
+    }
+    
+    func zoom(to layer: Layer?) {
+      guard let layer else {
+        zoomTo = nil
+        return
+      }
+      
+      let positions = layer.contents.reduce(into: [GeoJSON.Position]()) { acc, next in
+        switch next {
+        case .circle(let position, _, _, _):
+          acc.append(position)
+        case .line(let line, _):
+          acc.append(contentsOf: line.positions)
+        case .polygon(let polygon, _, _):
+          acc.append(contentsOf: polygon.exterior.positions)
+        }
+      }
+      
+      if positions.isEmpty {
+        zoomTo = nil
+      } else {
+        zoomTo = (.init(positions: positions, allowSpanningAntimeridian: true), layer.id)
+      }
     }
   }
   

@@ -12,7 +12,7 @@ import GeoDrawer
 @main
 struct CassiniApp: App {
   var body: some Scene {
-    WindowGroup {
+    Window("Cassini", id: "main-window") {
       ContentView(model: .init(layers: [
         .init(
           name: "Continents",

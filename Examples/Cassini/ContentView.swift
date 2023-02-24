@@ -26,6 +26,8 @@ struct ContentView: View {
 struct ContentView_macOS: View {
   @ObservedObject var model: ContentView.Model
   
+  @Environment(\.colorScheme) var colorScheme
+  
   var body: some View {
     HSplitView {
       VStack {
@@ -34,7 +36,32 @@ struct ContentView_macOS: View {
             HStack {
               Toggle("", isOn: $layer.visible)
               Text(layer.name)
+              
+              Spacer()
+              
+              if model.zoomTo?.1 == layer.id {
+                Image(systemName: "location.magnifyingglass")
+              }
+              
               ColorPicker("", selection: $layer.color)
+                .frame(maxWidth: 50)
+            }
+            .contextMenu {
+              if model.zoomTo?.1 == layer.id {
+                Button("Remove Zoom") {
+                  model.zoom(to: nil)
+                }
+              } else {
+                Button("Zoom") {
+                  model.zoom(to: layer)
+                }
+              }
+              
+              Button("Delete", role: .destructive) {
+                if let index = model.layers.firstIndex(where: { $0.id == layer.id }) {
+                  model.layers.remove(at: index)
+                }
+              }
             }
           }
           .onDrop(of: ["public.json"], isTargeted: nil) { providers in
@@ -82,16 +109,72 @@ struct ContentView_macOS: View {
         }
         
         GroupBox("Reference") {
-          Slider(value: $model.refLat, in: -90...90) {
-            Text("Latitude")
-              .frame(width: 100, alignment: .trailing)
+          HStack {
+            Slider(value: $model.refLat, in: -90...90) {
+              Text("Latitude")
+                .frame(width: 100, alignment: .trailing)
+            }
+            .frame(minWidth: 200)
+
+            TextField(value: $model.refLat, format: .number.precision(.fractionLength(1))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
           }
-          .frame(minWidth: 200)
-          Slider(value: $model.refLng, in: -180...180) {
-            Text("Longitude")
-              .frame(width: 100, alignment: .trailing)
+
+          HStack {
+            Slider(value: $model.refLng, in: -180...180) {
+              Text("Longitude")
+                .frame(width: 100, alignment: .trailing)
+            }
+            .frame(minWidth: 200)
+            
+            TextField(value: $model.refLng, format: .number.precision(.fractionLength(1))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
           }
-          .frame(minWidth: 200)
+        }
+        
+        GroupBox("Edge Insets") {
+          HStack {
+            Spacer()
+            
+            TextField(value: $model.insets.top, format: .number.precision(.fractionLength(0))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
+            
+            Spacer()
+          }
+
+          HStack {
+            Spacer()
+            
+            TextField(value: $model.insets.left, format: .number.precision(.fractionLength(0))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
+
+            TextField(value: $model.insets.right, format: .number.precision(.fractionLength(0))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
+
+            Spacer()
+          }
+          
+          HStack {
+            Spacer()
+            
+            TextField(value: $model.insets.bottom, format: .number.precision(.fractionLength(0))) {
+              EmptyView()
+            }
+            .frame(maxWidth: 55)
+            
+            Spacer()
+          }
+
         }
       }
       .frame(maxWidth: 300)
@@ -99,7 +182,11 @@ struct ContentView_macOS: View {
       VStack {
         GeoMap(
           contents: model.visibleContents,
-          projection: model.projection
+          projection: model.projection,
+          zoomTo: model.zoomTo?.0,
+          insets: model.insets,
+          mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
+          mapOutline: colorScheme == .dark ? .white : .black
         )
       }
       .padding()

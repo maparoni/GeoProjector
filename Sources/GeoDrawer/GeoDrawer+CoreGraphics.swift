@@ -128,8 +128,8 @@ extension GeoDrawer {
     
     switch bounds {
     case .ellipse:
-      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size)
-      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size)
+      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), zoomTo: zoomTo, to: size, insets: insets)
+      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), zoomTo: zoomTo, to: size, insets: insets)
 
       path = CGPath(ellipseIn: .init(
         origin: min.cgPoint,
@@ -137,8 +137,8 @@ extension GeoDrawer {
       ), transform: nil)
       
     case .rectangle:
-      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size)
-      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size)
+      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), zoomTo: zoomTo, to: size, insets: insets)
+      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), zoomTo: zoomTo, to: size, insets: insets)
       
       path = CGPath(rect: .init(
         origin: min.cgPoint,
@@ -146,7 +146,7 @@ extension GeoDrawer {
       ), transform: nil)
 
     case .bezier(let array):
-      let points = array.map { projection.translate($0, to: size) }
+      let points = array.map { projection.translate($0, zoomTo: zoomTo, to: size, insets: insets) }
       let mutable = CGMutablePath()
       mutable.move(to: points[0].cgPoint)
       for point in points[1...] {
