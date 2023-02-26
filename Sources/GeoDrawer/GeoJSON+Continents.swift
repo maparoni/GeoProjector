@@ -50,15 +50,21 @@ extension GeoDrawer.Content {
     case .featureCollection(let features): geometries = features.flatMap(\.geometry.geometries)
     }
     
-    return geometries.map { geometry in
-      switch geometry {
-      case .polygon(let polygon):
-        return .polygon(polygon, fill: color)
-      case .lineString(let line):
-        return .line(line, stroke: color)
-      case .point(let position):
-        return .circle(position, radius: 1, fill: color)
-      }
+    return geometries.map { Self.content(for: $0, color: color) }
+  }
+
+  public static func content(for geometry: GeoJSON.GeometryObject, color: GeoDrawer.Color) -> [GeoDrawer.Content] {
+    return geometry.geometries.map { Self.content(for: $0, color: color) }
+  }
+  
+  public static func content(for geometry: GeoJSON.Geometry, color: GeoDrawer.Color) -> GeoDrawer.Content {
+    switch geometry {
+    case .polygon(let polygon):
+      return .polygon(polygon, fill: color)
+    case .lineString(let line):
+      return .line(line, stroke: color)
+    case .point(let position):
+      return .circle(position, radius: 1, fill: color)
     }
   }
   

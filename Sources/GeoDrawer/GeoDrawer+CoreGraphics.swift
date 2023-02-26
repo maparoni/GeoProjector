@@ -141,6 +141,10 @@ extension GeoDrawer {
   }
   
   func draw(_ bounds: MapBounds, fillColor: CGColor? = nil, strokeColor: CGColor? = nil, in context: CGContext) {
+    guard let projection else {
+      return assertionFailure("Drawing map bounds not supported for provided converter.")
+    }
+    
     let path: CGPath
     
     switch bounds {
@@ -192,20 +196,21 @@ extension GeoDrawer {
 
 extension GeoDrawer {
   
-  public func draw(_ contents: [Content], mapBackground: CGColor, mapOutline: CGColor? = nil, mapBackdrop: CGColor? = nil, size: CGSize, in context: CGContext) {
+  public func draw(_ contents: [Content], mapBackground: CGColor? = nil, mapOutline: CGColor? = nil, mapBackdrop: CGColor? = nil, size: CGSize, in context: CGContext) {
     
     let bounds = CGRect(origin: .zero, size: size)
-
+    
 #warning("TODO: Break this up into first building shapes to draw, to share this with drawing as an SVG.")
-
+    
     if let mapBackdrop {
       context.setFillColor(mapBackdrop)
       context.addPath(.init(rect: bounds, transform: nil))
       context.fillPath()
     }
-
-    // Draw the background
-    draw(projection.mapBounds, fillColor: mapBackground, in: context)
+    
+    if let mapBackground, let projection {
+      draw(projection.mapBounds, fillColor: mapBackground, in: context)
+    }
     
     // Then draw contents on top
     for content in contents {
@@ -219,7 +224,7 @@ extension GeoDrawer {
       }
     }
     
-    if let mapOutline {
+    if let mapOutline, let projection {
       // Draw a border background *on top*
       draw(projection.mapBounds, strokeColor: mapOutline, in: context)
     }

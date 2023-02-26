@@ -32,6 +32,14 @@ import GeoJSONKit
 
 public struct GeoDrawer {
   
+  public init(size: Size, converter: @escaping (GeoJSON.Position) -> Point) {
+    self.projection = nil
+    self.size = size
+    self.zoomTo = nil
+    self.insets = .zero
+    self.converter = { (converter($0), false) }
+  }
+  
   public init(size: Size, projection: Projection, zoomTo: GeoJSON.BoundingBox? = nil, insets: EdgeInsets = .zero) {
     self.projection = projection
     self.size = size
@@ -89,15 +97,15 @@ public struct GeoDrawer {
     }
   }
   
-  public let projection: Projection
+  public let projection: Projection?
   
   public let size: Size
   
   public let zoomTo: Rect?
   
   public let insets: EdgeInsets
-    
-  var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection.invertCheck }
+      
+  var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }
   
   let converter: (GeoJSON.Position) -> (Point, Bool)?
 }
@@ -163,6 +171,12 @@ extension GeoDrawer {
   
   /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
   func convertLine(_ positions: [GeoJSON.Position]) -> [[Point]] {
+    guard let projection else {
+      return [positions.compactMap {
+        self.converter($0)?.0
+      }]
+    }
+    
     let projected = Self.projectLine(positions, projection: projection)
     
     // 3. Now translate the projected points into point coordinates to draw
