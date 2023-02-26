@@ -192,7 +192,7 @@ extension GeoDrawer {
 
 extension GeoDrawer {
   
-  func draw(_ contents: [Content], mapBackground: CGColor, mapOutline: CGColor? = nil, background: CGColor? = nil, size: CGSize, in context: CGContext) {
+  public func draw(_ contents: [Content], mapBackground: CGColor, mapOutline: CGColor? = nil, background: CGColor? = nil, size: CGSize, in context: CGContext) {
     
     let bounds = CGRect(origin: .zero, size: size)
 
