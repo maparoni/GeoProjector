@@ -192,14 +192,14 @@ extension GeoDrawer {
 
 extension GeoDrawer {
   
-  public func draw(_ contents: [Content], mapBackground: CGColor, mapOutline: CGColor? = nil, background: CGColor? = nil, size: CGSize, in context: CGContext) {
+  public func draw(_ contents: [Content], mapBackground: CGColor, mapOutline: CGColor? = nil, mapBackdrop: CGColor? = nil, size: CGSize, in context: CGContext) {
     
     let bounds = CGRect(origin: .zero, size: size)
 
 #warning("TODO: Break this up into first building shapes to draw, to share this with drawing as an SVG.")
 
-    if let background {
-      context.setFillColor(background)
+    if let mapBackdrop {
+      context.setFillColor(mapBackdrop)
       context.addPath(.init(rect: bounds, transform: nil))
       context.fillPath()
     }

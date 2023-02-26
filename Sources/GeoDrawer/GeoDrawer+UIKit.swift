@@ -29,7 +29,7 @@ import UIKit
 
 extension GeoDrawer {
   
-  public func drawImage(_ contents: [Content], background: UIColor? = nil) -> UIImage {
+  public func drawImage(_ contents: [Content], mapBackground: UIColor = .systemBlue, mapOutline: UIColor = .black, mapBackdrop: UIColor = .white) -> UIImage {
     let format = UIGraphicsImageRendererFormat()
     format.opaque = true
     let cgSize = CGSize(width: size.width, height: size.height)
@@ -38,9 +38,9 @@ extension GeoDrawer {
     let image = renderer.image { rendererContext in
       self.draw(
         contents,
-        mapBackground: (background ?? .systemBlue).cgColor,
-        mapOutline: UIColor.black.cgColor,
-        background: UIColor.white.cgColor,
+        mapBackground: mapBackground.cgColor,
+        mapOutline: mapOutline.cgColor,
+        mapBackdrop: mapBackdrop.cgColor,
         size: cgSize,
         in: rendererContext.cgContext
       )
