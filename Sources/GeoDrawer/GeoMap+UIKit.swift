@@ -112,7 +112,7 @@ public class GeoMapView: UIView {
       contents,
       mapBackground: mapBackground.cgColor,
       mapOutline: mapOutline.cgColor,
-      background: background.cgColor,
+      mapBackdrop: background.cgColor,
       size: frame.size,
       in: context
     )
