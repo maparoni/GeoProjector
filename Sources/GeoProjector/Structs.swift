@@ -24,7 +24,7 @@
 
 import Foundation
 
-public struct Point: Equatable {
+public struct Point: Hashable {
   public static var zero = Point(x: 0, y: 0)
   
   public init(x: Double, y: Double) {
@@ -41,7 +41,7 @@ public struct Point: Equatable {
   var lat: Double { y }
 }
 
-public struct Size: Equatable {
+public struct Size: Hashable {
   public static var zero = Size(width: 0, height: 0)
   
   public init(width: Double, height: Double) {
@@ -53,7 +53,7 @@ public struct Size: Equatable {
   public var height: Double
 }
 
-public struct Rect: Equatable {
+public struct Rect: Hashable {
   public init(origin: Point, size: Size) {
     self.origin = origin
     self.size = size
@@ -96,7 +96,7 @@ public struct Rect: Equatable {
   }
 }
 
-public struct EdgeInsets: Equatable {
+public struct EdgeInsets: Hashable {
   public static let zero = EdgeInsets()
   
   public init(top: Double = 0, left: Double = 0, bottom: Double = 0, right: Double = 0) {
