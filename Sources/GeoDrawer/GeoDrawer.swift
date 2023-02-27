@@ -93,7 +93,7 @@ public struct GeoDrawer {
     self.zoomTo = zoomToRect
     
     self.converter = { position -> (Point, Bool)? in
-      return projection.point(for: position, zoomTo: zoomToRect, size: size)
+      return projection.point(for: position, zoomTo: zoomToRect, size: size, insets: insets)
     }
   }
   
