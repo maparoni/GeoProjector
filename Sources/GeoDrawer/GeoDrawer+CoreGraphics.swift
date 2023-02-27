@@ -95,7 +95,6 @@ extension GeoDrawer {
       context.addPath(path)
 
       if let fillColor {
-        
         if invert {
           // TODO: This doesn't actually invert. Would be nice to do that later.
           context.setStrokeColor(fillColor)
@@ -110,7 +109,9 @@ extension GeoDrawer {
           context.fillPath()
         }
         
-      } else if let strokeColor {
+      }
+      
+      if let strokeColor {
         context.setStrokeColor(strokeColor)
         context.setLineWidth(2)
         context.setLineCap(.round)
@@ -123,21 +124,18 @@ extension GeoDrawer {
   func drawCircle(_ position: GeoJSON.Position, radius: CGFloat, fillColor: CGColor, strokeColor: CGColor? = nil, in context: CGContext) {
     guard let origin = converter(position) else { return }
     
-    let path = CGPath(ellipseIn: .init(
-      origin: origin.0.cgPoint,
-      size: .init(width: radius, height: radius)
-    ), transform: nil)
-    
+    context.addArc(center: origin.0.cgPoint, radius: radius / 2, startAngle: 0, endAngle: CGFloat(Double.pi * 2), clockwise: true)
+
     context.setFillColor(fillColor)
-    
-    context.addPath(path)
     context.fillPath()
-    
+
     if let strokeColor {
+      context.addArc(center: origin.0.cgPoint, radius: radius / 2, startAngle: 0, endAngle: CGFloat(Double.pi * 2), clockwise: true)
       context.setStrokeColor(strokeColor)
       context.setLineWidth(2)
       context.strokePath()
     }
+
   }
   
   func draw(_ bounds: MapBounds, fillColor: CGColor? = nil, strokeColor: CGColor? = nil, in context: CGContext) {
