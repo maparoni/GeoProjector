@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/maparoni/geojsonkit-turf",
       "state" : {
-        "revision" : "7e5d8bad4bc842e27caacf0a89223c7e047fbe64",
-        "version" : "0.1.4"
+        "revision" : "4937997370046d00a8f40dbe445280d709ec8dc4",
+        "version" : "0.1.5"
       }
     },
     {
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser",
       "state" : {
-        "revision" : "fddd1c00396eed152c45a46bea9f47b98e59301d",
-        "version" : "1.2.0"
+        "revision" : "fee6933f37fde9a5e12a1e4aeaa93fe60116ff2a",
+        "version" : "1.2.2"
       }
     }
   ],

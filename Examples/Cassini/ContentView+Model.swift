@@ -115,6 +115,22 @@ extension ContentView {
         }
     }
     
+    func addLayer(_ data: Data, preferredName: String?) throws {
+      let geoJSON = try GeoJSON(data: data)
+      let color: GeoDrawer.Color = .init(
+        red: Double((0...255).randomElement()!) / 255,
+        green: Double((0...255).randomElement()!) / 255,
+        blue: Double((0...255).randomElement()!) / 255,
+        alpha: 1
+      )
+      
+      layers.append(.init(
+        name: preferredName ?? "New Layer",
+        contents: GeoDrawer.Content.content(for: geoJSON, color: color),
+        color: color
+      ))
+    }
+    
     func zoom(to layer: Layer?) {
       guard let layer else {
         zoomTo = nil

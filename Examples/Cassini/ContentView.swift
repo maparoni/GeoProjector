@@ -100,72 +100,7 @@ struct OptionsView: View {
     VStack {
 #if os(macOS)
       GroupBox("Contents") {
-        List($model.layers, editActions: [.all]) { $layer in
-          HStack {
-            Toggle("", isOn: $layer.visible)
-            Text(layer.name)
-            
-            Spacer()
-            
-            if model.zoomTo?.1 == layer.id {
-              Image(systemName: "location.magnifyingglass")
-            }
-            
-            ColorPicker("", selection: $layer.color)
-              .frame(maxWidth: 50)
-          }
-          .contextMenu {
-            if model.zoomTo?.1 == layer.id {
-              Button("Remove Zoom") {
-                model.zoom(to: nil)
-              }
-            } else {
-              Button("Zoom") {
-                model.zoom(to: layer)
-              }
-            }
-            
-            Button("Delete", role: .destructive) {
-              if let index = model.layers.firstIndex(where: { $0.id == layer.id }) {
-                model.layers.remove(at: index)
-              }
-            }
-          }
-        }
-        .onDrop(of: ["public.json"], isTargeted: nil) { providers in
-          print("Got \(providers)")
-          Task {
-            for provider in providers {
-              let object = try await provider.loadItem(forTypeIdentifier: "public.json")
-              let data: Data
-              var preferredName: String? = nil
-              switch object {
-              case let aData as Data:
-                data = aData
-              case let url as URL:
-                data = try Data(contentsOf: url)
-                preferredName = url.deletingPathExtension().lastPathComponent
-              default:
-                preconditionFailure()
-              }
-              let geoJSON = try GeoJSON(data: data)
-              let color: GeoDrawer.Color = .init(
-                red: Double((0...255).randomElement()!) / 255,
-                green: Double((0...255).randomElement()!) / 255,
-                blue: Double((0...255).randomElement()!) / 255,
-                alpha: 1
-              )
-              
-              model.layers.append(.init(
-                name: preferredName ?? provider.suggestedName ?? "New Layer",
-                contents: GeoDrawer.Content.content(for: geoJSON, color: color),
-                color: color
-              ))
-            }
-          }
-          
-          return true
-        }
+        LayersList(model: model)
       }
       
       GroupBox("Projection") {
@@ -254,6 +189,70 @@ struct OptionsView: View {
     }
   }
 }
+
+struct LayersList: View {
+  @ObservedObject var model: ContentView.Model
+  
+  var body: some View {
+    List($model.layers, editActions: [.all]) { $layer in
+      HStack {
+        Toggle("", isOn: $layer.visible)
+        Text(layer.name)
+        
+        Spacer()
+        
+        if model.zoomTo?.1 == layer.id {
+          Image(systemName: "location.magnifyingglass")
+        }
+        
+        ColorPicker("", selection: $layer.color)
+          .frame(maxWidth: 50)
+      }
+      .contextMenu {
+        if model.zoomTo?.1 == layer.id {
+          Button("Remove Zoom") {
+            model.zoom(to: nil)
+          }
+        } else {
+          Button("Zoom") {
+            model.zoom(to: layer)
+          }
+        }
+        
+        Button("Delete", role: .destructive) {
+          if let index = model.layers.firstIndex(where: { $0.id == layer.id }) {
+            model.layers.remove(at: index)
+          }
+        }
+      }
+    }
+    .onDrop(of: ["public.json"], isTargeted: nil) { providers in
+      print("Got \(providers)")
+      Task {
+        for provider in providers {
+          let object = try await provider.loadItem(forTypeIdentifier: "public.json")
+          let data: Data
+          var preferredName: String? = nil
+          switch object {
+          case let aData as Data:
+            data = aData
+          case let url as URL:
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            data = try Data(contentsOf: url)
+            preferredName = url.deletingPathExtension().lastPathComponent
+          default:
+            preconditionFailure()
+          }
+          try model.addLayer(data, preferredName: preferredName ?? provider.suggestedName)
+        }
+      }
+      
+      return true
+    }
+  }
+}
+
 
 #if DEBUG
 struct ContentView_Previews: PreviewProvider {

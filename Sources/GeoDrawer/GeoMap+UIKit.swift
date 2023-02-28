@@ -85,6 +85,7 @@ public class GeoMapView: UIView {
         size: .init(frame.size),
         projection: projection,
         zoomTo: zoomTo,
+        zoomOutFactor: 5,
         insets: insets
       )
       _drawer = drawer
