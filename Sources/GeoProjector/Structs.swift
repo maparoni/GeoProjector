@@ -111,3 +111,26 @@ public struct EdgeInsets: Hashable {
   public var bottom: Double = 0
   public var right: Double = 0
 }
+
+#if canImport(CoreGraphics)
+import CoreGraphics
+
+public extension Size {
+  init(_ size: CGSize) {
+    self.init(width: size.width, height: size.height)
+  }
+}
+
+public extension Point {
+  init(_ point: CGPoint) {
+    self.init(x: point.x, y: point.y)
+  }
+}
+
+public extension Rect {
+  init(_ frame: CGRect) {
+    self.init(origin: .init(frame.origin), size: .init(frame.size))
+  }
+}
+
+#endif

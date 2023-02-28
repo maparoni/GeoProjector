@@ -81,7 +81,7 @@ public class GeoMapView: NSView {
       return _drawer
     } else {
       let drawer = GeoDrawer(
-        size: .init(width: frame.size.width, height: frame.size.height),
+        size: .init(frame.size),
         projection: projection,
         zoomTo: zoomTo,
         insets: insets

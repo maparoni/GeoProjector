@@ -30,17 +30,48 @@ import GeoJSONKit
 
 @_exported import GeoProjector
 
+/// GeoDrawer let's you draw GeoJSON content using different map projections
+///
+/// Depending on the platform, it can be used to generate a `UIImage` from a GeoJSON or draw it into a `CGContext`.
+///
+/// ## Generating images
+///
+/// ```
+/// let myContext: CGContext = ...
+///
+/// // The GeoJSON content, e.g., the provided GeoJSON of the continents
+/// let myContent: GeoJSON = try GeoDrawer.Content.world()
+///
+/// let drawer = GeoDrawer(
+///   size: .init(width: 400, height: 200),
+///   projection: Projections.EqualEarth()
+/// )
+///
+/// let image = drawer.drawImage(myContent
+///   mapBackground: .systemGreen,
+///   mapOutline: .black,
+///   mapBackdrop: .white
+/// )
+/// ```
+
+/// ## Drawing into a CoreGraphics Context
+///
+/// ```
+/// let myContext: CGContext = ...
+///
+/// // The GeoJSON content, e.g., the provided GeoJSON of the continents
+/// let myContent: GeoJSON = try GeoDrawer.Content.world()
+///
+/// let drawer = GeoDrawer(
+///   size: .init(width: 400, height: 200),
+///   projection: Projections.EqualEarth()
+/// )
+///
+/// drawer.draw(myContent, in: myContext)
+/// ```
 public struct GeoDrawer {
   
-  public init(size: Size, converter: @escaping (GeoJSON.Position) -> Point) {
-    self.projection = nil
-    self.size = size
-    self.zoomTo = nil
-    self.insets = .zero
-    self.converter = { (converter($0), false) }
-  }
-  
-  public init(size: Size, projection: Projection, zoomTo: GeoJSON.BoundingBox? = nil, insets: EdgeInsets = .zero) {
+  public init(size: Size, projection: Projection, zoomTo: GeoJSON.BoundingBox? = nil, zoomOutFactor: Double = 2, insets: EdgeInsets = .zero) {
     self.projection = projection
     self.size = size
     self.insets = insets
@@ -80,7 +111,7 @@ public struct GeoDrawer {
       guard let bounds else { return nil }
       
       // Zoom out a whole bit to give some global context
-      let scaled = bounds.scaled(x: 5, y: 5)
+      let scaled = bounds.scaled(x: zoomOutFactor, y: zoomOutFactor)
       
       // But don't zoom out further than the projection size
       if scaled.size.width < projection.projectionSize.width, scaled.size.height < projection.projectionSize.height {
@@ -93,18 +124,27 @@ public struct GeoDrawer {
     self.zoomTo = zoomToRect
     
     self.converter = { position -> (Point, Bool)? in
-      return projection.point(for: position, zoomTo: zoomToRect, size: size, insets: insets)
+      let point = Point(x: position.longitude.toRadians(), y: position.latitude.toRadians())
+      return projection.point(for: point, size: size, zoomTo: zoomToRect, insets: insets)
     }
   }
   
-  public let projection: Projection?
+  public init(size: Size, converter: @escaping (GeoJSON.Position) -> Point) {
+    self.projection = nil
+    self.size = size
+    self.zoomTo = nil
+    self.insets = .zero
+    self.converter = { (converter($0), false) }
+  }
   
-  public let size: Size
+  let projection: Projection?
   
-  public let zoomTo: Rect?
+  let size: Size
   
-  public let insets: EdgeInsets
-      
+  let zoomTo: Rect?
+
+  let insets: EdgeInsets
+
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }
   
   let converter: (GeoJSON.Position) -> (Point, Bool)?
@@ -183,7 +223,7 @@ extension GeoDrawer {
     let converted = projected
       .map { (unproj, projected) -> (Point, Point?, Grouping) in
         if let projected {
-          return (unproj, projection.translate(projected, zoomTo: zoomTo, to: size, insets: insets), projection.willWrap(unproj) ? .wrapped : .notWrapped)
+          return (unproj, projection.translate(projected, to: size, zoomTo: zoomTo, insets: insets), projection.willWrap(unproj) ? .wrapped : .notWrapped)
         } else {
           return (unproj, nil, .notProjected)
         }
@@ -227,7 +267,7 @@ extension GeoDrawer {
           // When "resuming" the same group, connect with the previous points
           // in the group, but interpolate again.
           let interpolated = Interpolator.interpolate(from: last, to: unproj, maxDiff: 0.0025, projector: projection.project(_:))
-          let translated = interpolated.map { ($0.0, projection.translate($0.1, zoomTo: zoomTo, to: size, insets: insets)) }
+          let translated = interpolated.map { ($0.0, projection.translate($0.1, to: size, zoomTo: zoomTo, insets: insets)) }
           new.append(contentsOf: translated)
         }
         if let proj {

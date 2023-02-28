@@ -147,8 +147,8 @@ extension GeoDrawer {
     
     switch bounds {
     case .ellipse:
-      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), zoomTo: zoomTo, to: size, insets: insets)
-      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), zoomTo: zoomTo, to: size, insets: insets)
+      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets)
+      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets)
 
       path = CGPath(ellipseIn: .init(
         origin: min.cgPoint,
@@ -156,8 +156,8 @@ extension GeoDrawer {
       ), transform: nil)
       
     case .rectangle:
-      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), zoomTo: zoomTo, to: size, insets: insets)
-      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), zoomTo: zoomTo, to: size, insets: insets)
+      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets)
+      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets)
       
       path = CGPath(rect: .init(
         origin: min.cgPoint,
@@ -165,7 +165,7 @@ extension GeoDrawer {
       ), transform: nil)
 
     case .bezier(let array):
-      let points = array.map { projection.translate($0, zoomTo: zoomTo, to: size, insets: insets) }
+      let points = array.map { projection.translate($0, to: size, zoomTo: zoomTo, insets: insets) }
       let mutable = CGMutablePath()
       mutable.move(to: points[0].cgPoint)
       for point in points[1...] {
@@ -194,11 +194,12 @@ extension GeoDrawer {
 
 extension GeoDrawer {
   
-  public func draw(_ contents: [Content], mapBackground: CGColor? = nil, mapOutline: CGColor? = nil, mapBackdrop: CGColor? = nil, size: CGSize, in context: CGContext) {
+  public func draw(_ contents: [Content], mapBackground: CGColor? = nil, mapOutline: CGColor? = nil, mapBackdrop: CGColor? = nil, in context: CGContext) {
     
+    let size = CGSize(width: self.size.width, height: self.size.height)
     let bounds = CGRect(origin: .zero, size: size)
     
-#warning("TODO: Break this up into first building shapes to draw, to share this with drawing as an SVG.")
+    // LATER: Break this up into first building shapes to draw, to share this with drawing as an SVG.
     
     if let mapBackdrop {
       context.setFillColor(mapBackdrop)
