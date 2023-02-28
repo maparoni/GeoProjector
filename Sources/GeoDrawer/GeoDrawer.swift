@@ -34,7 +34,7 @@ import GeoJSONKit
 ///
 /// Depending on the platform, it can be used to generate a `UIImage` from a GeoJSON or draw it into a `CGContext`.
 ///
-/// ## Generating images
+/// **Generating images**
 ///
 /// ```
 /// let myContext: CGContext = ...
@@ -53,8 +53,8 @@ import GeoJSONKit
 ///   mapBackdrop: .white
 /// )
 /// ```
-
-/// ## Drawing into a CoreGraphics Context
+///
+/// **Drawing into a CoreGraphics Context**
 ///
 /// ```
 /// let myContext: CGContext = ...
