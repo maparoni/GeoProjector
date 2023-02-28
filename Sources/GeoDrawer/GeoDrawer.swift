@@ -71,7 +71,7 @@ import GeoJSONKit
 /// ```
 public struct GeoDrawer {
   
-  public init(size: Size, projection: Projection, zoomTo: GeoJSON.BoundingBox? = nil, zoomOutFactor: Double = 2, insets: EdgeInsets = .zero) {
+  public init(size: Size, projection: Projection, zoomTo: GeoJSON.BoundingBox? = nil, zoomOutFactor: Double = 1, insets: EdgeInsets = .zero) {
     self.projection = projection
     self.size = size
     self.insets = insets
