@@ -46,7 +46,7 @@ public protocol Projection {
   /// x range of `-pi...pi` and a y range of `(-pi/2)...(pi/2)`. The projection should use
   /// the same coordinate system, with ``reference`` projected to `(x: 0, y: 0)`. The projection
   /// can use a different range, which can use a smaller or larger range as indicated by
-  /// ``projectionRange``.
+  /// ``projectionSize``.
   func project(_ point: Point) -> Point?
   
   func willWrap(_ point: Point) -> Bool
@@ -141,8 +141,8 @@ extension Projection {
     #endif
     
     let normalized = Point(
-      x: ((point.x        + projectionSize.width / 2) / projectionSize.width),
-      y: ((point.y * flip + projectionSize.height / 2) / projectionSize.height)
+      x: (point.x        + projectionSize.width  / 2) / projectionSize.width,
+      y: (point.y * flip + projectionSize.height / 2) / projectionSize.height
     )
         
     return .init(
@@ -169,27 +169,27 @@ extension Projection {
       y: (size.height - canvasSize.height) / 2
     )
     
-    let flip: Double
-    #if os(macOS)
-    flip = 1
-    #else
-    flip = -1
-    #endif
-    
     let zoomedPoint = Point(
       x: point.x - zoomTo.origin.x,
       y: point.y - zoomTo.origin.y
     )
     
     let normalized = Point(
-      x: (zoomedPoint.x        / zoomTo.size.width),
-      y: (zoomedPoint.y * flip / zoomTo.size.height)
+      x: (zoomedPoint.x / zoomTo.size.width),
+      y: (zoomedPoint.y / zoomTo.size.height)
     )
-        
+    
+#if os(macOS)
     return .init(
       x: canvasOffset.x + normalized.x * canvasSize.width,
       y: canvasOffset.y + normalized.y * canvasSize.height
     )
+#else
+    return .init(
+      x: canvasOffset.x + normalized.x * canvasSize.width,
+      y: canvasSize.height - (canvasOffset.y + normalized.y * canvasSize.height)
+    )
+#endif
   }
   
 }
