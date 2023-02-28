@@ -102,7 +102,6 @@ public class GeoMapView: NSView {
       contents,
       mapBackground: mapBackground.cgColor,
       mapOutline: mapOutline.cgColor,
-      size: frame.size,
       in: context
     )
   }
