@@ -106,6 +106,13 @@ public struct EdgeInsets: Hashable {
     self.right = right
   }
   
+  public init(all: Double) {
+    self.top = all
+    self.left = all
+    self.bottom = all
+    self.right = all
+  }
+  
   public var top: Double = 0
   public var left: Double = 0
   public var bottom: Double = 0
