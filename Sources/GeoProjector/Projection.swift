@@ -101,18 +101,27 @@ extension Projection {
   ///   - insets: Optional insets within `size` to reserve which the zoom shouldn't use
   /// - Returns: Drawing position of the point, in screen point. The point `(x:0, y:0)` is in bottom left on macOS, otherwise in top left.
   public func translate(_ point: Point, to size: Size, zoomTo: Rect? = nil, insets: EdgeInsets = .zero) -> Point {
-    let availableSize = Size(width: size.width - insets.left - insets.right, height: size.height - insets.top - insets.bottom)
+    let availableSize = Size(
+      width: size.width - insets.left - insets.right,
+      height: size.height - insets.top - insets.bottom
+    )
     let pointInAvailable: Point
     if let zoomTo {
       pointInAvailable = zoomedTranslate(point, zoomTo: zoomTo, to: availableSize)
     } else {
       pointInAvailable = simpleTranslate(point, to: availableSize)
     }
+    
+    let x: Double = pointInAvailable.x + insets.left
+    let y: Double
 #if os(macOS)
-    return Point(x: pointInAvailable.x + insets.left, y: pointInAvailable.y + insets.bottom)
+    y = pointInAvailable.y + insets.bottom
+#elseif targetEnvironment(macCatalyst)
+    y = (availableSize.height - pointInAvailable.y) + insets.top
 #else
-    return Point(x: pointInAvailable.x + insets.left, y: pointInAvailable.y + insets.top)
+    y = pointInAvailable.y + insets.top
 #endif
+    return Point(x: x, y: y)
   }
   
   private func simpleTranslate(_ point: Point, to size: Size) -> Point {
@@ -134,7 +143,7 @@ extension Projection {
     )
     
     let flip: Double
-    #if os(macOS)
+    #if os(macOS) || targetEnvironment(macCatalyst)
     flip = 1
     #else
     flip = -1
@@ -179,17 +188,15 @@ extension Projection {
       y: (zoomedPoint.y / zoomTo.size.height)
     )
     
-#if os(macOS)
-    return .init(
-      x: canvasOffset.x + normalized.x * canvasSize.width,
-      y: canvasOffset.y + normalized.y * canvasSize.height
-    )
+    let x = canvasOffset.x + normalized.x * canvasSize.width
+    let y: Double
+    
+#if os(macOS) || targetEnvironment(macCatalyst)
+    y = canvasOffset.y + normalized.y * canvasSize.height
 #else
-    return .init(
-      x: canvasOffset.x + normalized.x * canvasSize.width,
-      y: canvasSize.height - (canvasOffset.y + normalized.y * canvasSize.height)
-    )
+    y = canvasSize.height - (canvasOffset.y + normalized.y * canvasSize.height)
 #endif
+    return .init(x: x, y: y)
   }
   
 }
