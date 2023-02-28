@@ -80,13 +80,15 @@ extension Projection {
 
 extension Projection {
   
-  public func point(for position: GeoJSON.Position, zoomTo: Rect? = nil, size: Size, insets: EdgeInsets = .zero) -> (Point, Bool)? {
-    let input = Point(x: position.longitude.toRadians(), y: position.latitude.toRadians())
-    let wrap = self.willWrap(input)
+  /// Projects an input point into a projected  point within `size` where it should be drawn, optionally
+  /// accounting for zooming into
+  /// a particular area of the map and adding insets around the map.
+  public func point(for point: Point, size: Size, zoomTo: Rect? = nil, insets: EdgeInsets = .zero) -> (Point, Bool)? {
+    let wrap = self.willWrap(point)
     
-    guard let projected = project(input) else { return nil }
+    guard let projected = project(point) else { return nil }
     
-    return (translate(projected, zoomTo: zoomTo, to: size, insets: insets), wrap)
+    return (translate(projected, to: size, zoomTo: zoomTo, insets: insets), wrap)
   }
   
   
@@ -94,11 +96,11 @@ extension Projection {
   ///
   /// - Parameters:
   ///   - point: Projected point, i.e., in radians
-  ///   - zoomTo: Optional projected area to zoom to, i.e., in radians
   ///   - size: Drawing size, i.e., in screen points or pixels
+  ///   - zoomTo: Optional projected area to zoom to, i.e., in radians
   ///   - insets: Optional insets within `size` to reserve which the zoom shouldn't use
   /// - Returns: Drawing position of the point, in screen point. The point `(x:0, y:0)` is in bottom left on macOS, otherwise in top left.
-  public func translate(_ point: Point, zoomTo: Rect? = nil, to size: Size, insets: EdgeInsets = .zero) -> Point {
+  public func translate(_ point: Point, to size: Size, zoomTo: Rect? = nil, insets: EdgeInsets = .zero) -> Point {
     let availableSize = Size(width: size.width - insets.left - insets.right, height: size.height - insets.top - insets.bottom)
     let pointInAvailable: Point
     if let zoomTo {

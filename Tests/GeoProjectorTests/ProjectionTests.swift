@@ -39,3 +39,10 @@ final class ProjectionTests: XCTestCase {
     XCTAssertEqual(projected?.y ?? 0, macOS ? 22.2 : 77.8, accuracy: 0.1)
   }
 }
+
+extension Projection {
+  func point(for position: GeoJSON.Position, zoomTo: Rect? = nil, size: Size, insets: EdgeInsets = .zero) -> (Point, Bool)? {
+    let point = Point(x: position.longitude.toRadians(), y: position.latitude.toRadians())
+    return self.point(for: point, size: size, zoomTo: zoomTo, insets: insets)
+  }
+}

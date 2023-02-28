@@ -29,6 +29,16 @@ import UIKit
 
 extension GeoDrawer {
   
+  /// Generates an image drawing the provided contents according to the configured
+  /// projection, zoom and edge insets. When providing the different colours, the background of
+  /// the map projection itself will be drawn, too.
+  ///
+  /// - Parameters:
+  ///   - contents: GeoJSON contents to draw
+  ///   - mapBackground: Background of the map itself
+  ///   - mapOutline: Stroke colour around the map
+  ///   - mapBackdrop: Background to draw outside the map / projection bounds
+  /// - Returns: New image
   public func drawImage(_ contents: [Content], mapBackground: UIColor? = nil, mapOutline: UIColor? = nil, mapBackdrop: UIColor? = nil) -> UIImage {
     let format = UIGraphicsImageRendererFormat()
     format.opaque = mapBackdrop != nil
@@ -41,7 +51,6 @@ extension GeoDrawer {
         mapBackground: mapBackground?.cgColor,
         mapOutline: mapOutline?.cgColor,
         mapBackdrop: mapBackdrop?.cgColor,
-        size: cgSize,
         in: rendererContext.cgContext
       )
     }
