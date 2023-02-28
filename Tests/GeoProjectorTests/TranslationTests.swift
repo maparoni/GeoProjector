@@ -8,7 +8,6 @@
 import XCTest
 
 @testable import GeoProjector
-@testable import GeoDrawer
 
 final class TranslationTests: XCTestCase {
 #if os(macOS)

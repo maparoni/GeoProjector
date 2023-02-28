@@ -2,7 +2,6 @@ import XCTest
 
 import GeoJSONKit
 @testable import GeoProjector
-@testable import GeoDrawer
 
 final class ProjectionTests: XCTestCase {
 #if os(macOS)
