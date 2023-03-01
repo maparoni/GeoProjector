@@ -116,10 +116,8 @@ extension Projection {
     let y: Double
 #if os(macOS)
     y = pointInAvailable.y + insets.bottom
-#elseif targetEnvironment(macCatalyst)
-    y = (availableSize.height - pointInAvailable.y) + insets.top
 #else
-    y = pointInAvailable.y + insets.top
+    y = (availableSize.height - pointInAvailable.y) + insets.top
 #endif
     return Point(x: x, y: y)
   }
@@ -142,16 +140,9 @@ extension Projection {
       y: (size.height - canvasSize.height) / 2
     )
     
-    let flip: Double
-    #if os(macOS) || targetEnvironment(macCatalyst)
-    flip = 1
-    #else
-    flip = -1
-    #endif
-    
     let normalized = Point(
-      x: (point.x        + projectionSize.width  / 2) / projectionSize.width,
-      y: (point.y * flip + projectionSize.height / 2) / projectionSize.height
+      x: (point.x + projectionSize.width  / 2) / projectionSize.width,
+      y: (point.y + projectionSize.height / 2) / projectionSize.height
     )
         
     return .init(
@@ -188,15 +179,10 @@ extension Projection {
       y: (zoomedPoint.y / zoomTo.size.height)
     )
     
-    let x = canvasOffset.x + normalized.x * canvasSize.width
-    let y: Double
-    
-#if os(macOS) || targetEnvironment(macCatalyst)
-    y = canvasOffset.y + normalized.y * canvasSize.height
-#else
-    y = canvasSize.height - (canvasOffset.y + normalized.y * canvasSize.height)
-#endif
-    return .init(x: x, y: y)
+    return .init(
+      x: canvasOffset.x + normalized.x * canvasSize.width,
+      y: canvasOffset.y + normalized.y * canvasSize.height
+    )
   }
   
 }
