@@ -211,11 +211,10 @@ extension GeoDrawer {
       draw(projection.mapBounds, fillColor: mapBackground, in: context)
     }
     
-    // Then draw contents on top
     for content in contents {
       switch content {
-      case let .circle(position, radius, fill, stroke):
-        drawCircle(position, radius: radius, fillColor: fill, strokeColor: stroke, in: context)
+      case .circle:
+        break // this will go above the outline, as they might go outside projection
       case let .line(line, stroke):
         draw(line, strokeColor: stroke, in: context)
       case let .polygon(polygon, fill, stroke):
@@ -227,6 +226,16 @@ extension GeoDrawer {
       // Draw a border background *on top*
       draw(projection.mapBounds, strokeColor: mapOutline, in: context)
     }
+    
+    for content in contents {
+      switch content {
+      case let .circle(position, radius, fill, stroke):
+        drawCircle(position, radius: radius, fillColor: fill, strokeColor: stroke, in: context)
+      case .line, .polygon:
+        break // under the outline, as they follow projection
+      }
+    }
+
   }
   
 }
