@@ -113,8 +113,10 @@ public struct GeoDrawer {
       // Zoom out a whole bit to give some global context
       let scaled = bounds.scaled(x: zoomOutFactor, y: zoomOutFactor)
       
-      // But don't zoom out further than the projection size
-      if scaled.size.width < projection.projectionSize.width, scaled.size.height < projection.projectionSize.height {
+      // But don't zoom out further than 75% of the projection size
+      // (75% is a bit arbitrary, but it looks weird if you zoom in
+      // just a little bit; better to just show not zoomed-in then.)
+      if scaled.size.width < projection.projectionSize.width * 0.75, scaled.size.height < projection.projectionSize.height * 0.75 {
         return scaled
       } else {
         return nil
