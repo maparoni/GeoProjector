@@ -112,6 +112,7 @@ extension GeoDrawer {
       }
       
       if let strokeColor {
+        context.addPath(path)
         context.setStrokeColor(strokeColor)
         context.setLineWidth(strokeWidth)
         context.setLineCap(.round)
