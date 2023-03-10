@@ -42,7 +42,7 @@ extension GeoJSON.GeometryObject {
 
 extension GeoDrawer.Content {
   
-  public static func content(for geoJSON: GeoJSON, color: GeoDrawer.Color) -> [GeoDrawer.Content] {
+  public static func content(for geoJSON: GeoJSON, color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil) -> [GeoDrawer.Content] {
     let geometries: [GeoJSON.Geometry]
     switch geoJSON.object {
     case .geometry(let geo): geometries = geo.geometries
@@ -50,17 +50,17 @@ extension GeoDrawer.Content {
     case .featureCollection(let features): geometries = features.flatMap(\.geometry.geometries)
     }
     
-    return geometries.map { Self.content(for: $0, color: color) }
+    return geometries.map { Self.content(for: $0, color: color, polygonStroke: polygonStroke) }
   }
 
-  public static func content(for geometry: GeoJSON.GeometryObject, color: GeoDrawer.Color) -> [GeoDrawer.Content] {
-    return geometry.geometries.map { Self.content(for: $0, color: color) }
+  public static func content(for geometry: GeoJSON.GeometryObject, color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil) -> [GeoDrawer.Content] {
+    return geometry.geometries.map { Self.content(for: $0, color: color, polygonStroke: polygonStroke) }
   }
   
-  public static func content(for geometry: GeoJSON.Geometry, color: GeoDrawer.Color) -> GeoDrawer.Content {
+  public static func content(for geometry: GeoJSON.Geometry, color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil) -> GeoDrawer.Content {
     switch geometry {
     case .polygon(let polygon):
-      return .polygon(polygon, fill: color)
+      return .polygon(polygon, fill: color, stroke: polygonStroke?.0, strokeWidth: polygonStroke?.width ?? 0)
     case .lineString(let line):
       return .line(line, stroke: color)
     case .point(let position):
