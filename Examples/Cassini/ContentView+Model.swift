@@ -139,11 +139,11 @@ extension ContentView {
       
       let positions = layer.contents.reduce(into: [GeoJSON.Position]()) { acc, next in
         switch next {
-        case .circle(let position, _, _, _):
+        case .circle(let position, _, _, _, _):
           acc.append(position)
         case .line(let line, _):
           acc.append(contentsOf: line.positions)
-        case .polygon(let polygon, _, _):
+        case .polygon(let polygon, _, _, _):
           acc.append(contentsOf: polygon.exterior.positions)
         }
       }
@@ -164,9 +164,9 @@ extension GeoDrawer.Content {
     switch self {
     case .line(let lineString, _):
       return .line(lineString, stroke: color)
-    case .polygon(let polygon, _, _):
+    case .polygon(let polygon, _, _, _):
       return .polygon(polygon, fill: color)
-    case .circle(let position, let radius, _, _):
+    case .circle(let position, let radius, _, _, _):
       return .circle(position, radius: radius, fill: color)
     }
   }

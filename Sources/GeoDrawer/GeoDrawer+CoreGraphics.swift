@@ -54,7 +54,7 @@ extension GeoDrawer {
     }
   }
   
-  public func draw(_ polygon: GeoJSON.Polygon, fillColor: CGColor? = nil, strokeColor: CGColor? = nil, frame: CGRect, in context: CGContext) {
+  public func draw(_ polygon: GeoJSON.Polygon, fillColor: CGColor? = nil, strokeColor: CGColor? = nil, strokeWidth: Double = 2, frame: CGRect, in context: CGContext) {
     // In some projections such as Azimuthal, we might need to colour a cut-out
     // rather than the projected polygon.
     let invert: Bool = invertCheck?(polygon) ?? false
@@ -98,7 +98,7 @@ extension GeoDrawer {
         if invert {
           // TODO: This doesn't actually invert. Would be nice to do that later.
           context.setStrokeColor(fillColor)
-          context.setLineWidth(2)
+          context.setLineWidth(strokeWidth)
           context.setLineCap(.round)
           context.setLineJoin(.round)
           context.strokePath()
@@ -113,7 +113,7 @@ extension GeoDrawer {
       
       if let strokeColor {
         context.setStrokeColor(strokeColor)
-        context.setLineWidth(2)
+        context.setLineWidth(strokeWidth)
         context.setLineCap(.round)
         context.setLineJoin(.round)
         context.strokePath()
@@ -121,7 +121,7 @@ extension GeoDrawer {
     }
   }
   
-  func drawCircle(_ position: GeoJSON.Position, radius: CGFloat, fillColor: CGColor, strokeColor: CGColor? = nil, in context: CGContext) {
+  func drawCircle(_ position: GeoJSON.Position, radius: CGFloat, fillColor: CGColor, strokeColor: CGColor? = nil, strokeWidth: Double = 2, in context: CGContext) {
     guard let origin = converter(position) else { return }
     
     context.addArc(center: origin.0.cgPoint, radius: radius / 2, startAngle: 0, endAngle: CGFloat(Double.pi * 2), clockwise: true)
@@ -132,7 +132,7 @@ extension GeoDrawer {
     if let strokeColor {
       context.addArc(center: origin.0.cgPoint, radius: radius / 2, startAngle: 0, endAngle: CGFloat(Double.pi * 2), clockwise: true)
       context.setStrokeColor(strokeColor)
-      context.setLineWidth(2)
+      context.setLineWidth(strokeWidth)
       context.strokePath()
     }
 
@@ -217,8 +217,8 @@ extension GeoDrawer {
         break // this will go above the outline, as they might go outside projection
       case let .line(line, stroke):
         draw(line, strokeColor: stroke, in: context)
-      case let .polygon(polygon, fill, stroke):
-        draw(polygon, fillColor: fill, strokeColor: stroke, frame: bounds, in: context)
+      case let .polygon(polygon, fill, stroke, strokeWidth):
+        draw(polygon, fillColor: fill, strokeColor: stroke, strokeWidth: strokeWidth, frame: bounds, in: context)
       }
     }
     
@@ -229,8 +229,8 @@ extension GeoDrawer {
     
     for content in contents {
       switch content {
-      case let .circle(position, radius, fill, stroke):
-        drawCircle(position, radius: radius, fillColor: fill, strokeColor: stroke, in: context)
+      case let .circle(position, radius, fill, stroke, strokeWidth):
+        drawCircle(position, radius: radius, fillColor: fill, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
       case .line, .polygon:
         break // under the outline, as they follow projection
       }
