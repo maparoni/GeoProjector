@@ -1,4 +1,5 @@
-[![license](https://img.shields.io/badge/license-MPL2-ff3079.svg)](https://github.com/maparoni/GeoProjector/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-MPL2-ff3079.svg)](https://github.com/maparoni/GeoProjector/blob/main/LICENSE)
+[![CI](https://github.com/maparoni/GeoProjector/actions/workflows/swift.yml/badge.svg)](https://github.com/maparoni/GeoProjector/actions/workflows/swift.yml)
 
 # GeoProjector
 
