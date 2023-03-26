@@ -1,3 +1,5 @@
+[![license](https://img.shields.io/badge/license-MPL2-ff3079.svg)](https://github.com/maparoni/GeoProjector/blob/main/LICENSE)
+
 # GeoProjector
 
 This is a Swift-only library to calculate and draw map projections.
@@ -111,7 +113,9 @@ precious resources:
 
 ## License
 
-This library is published under the GNU Lesser General Public License 2.1 license. This means
-that if you use and modify this library, you have to make your changes also available under the
+This library is available under the [Mozilla Public License 2.0](https://www.mozilla.org/en-US/MPL/2.0/). 
+This means that if you use and modify this library, you have to make your changes also available under the
 same license (or a compatible one). As long as you comply with this and keep copyright notices
 intact, you can however use the library in closed source projects.
+
+The [examples](Examples/) are public domain and can be adapted freely.
