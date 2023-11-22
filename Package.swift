@@ -5,6 +5,10 @@ import PackageDescription
 
 let package = Package(
   name: "GeoProjector",
+  platforms: [
+    .macOS(.v12), .iOS(.v15), .watchOS(.v8), .tvOS(.v15),
+    .custom("xros", versionString: "1.0")
+  ],
   products: [
     .library(
       name: "GeoProjector",
