@@ -128,17 +128,21 @@ public struct GeoDrawer {
     self.converter = { (converter($0), false) }
   }
   
-  let projection: Projection?
+  public let projection: Projection?
   
-  let size: Size
+  public let size: Size
   
   let zoomTo: Rect?
 
-  let insets: EdgeInsets
+  public let insets: EdgeInsets
 
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }
   
   let converter: (GeoJSON.Position) -> (Point, Bool)?
+  
+  public func point(for position: GeoJSON.Position) -> Point? {
+    converter(position)?.0
+  }
 }
 
 // MARK: - Content

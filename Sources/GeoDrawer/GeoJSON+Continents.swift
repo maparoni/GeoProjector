@@ -20,7 +20,7 @@ import UIKit
 #endif
 
 extension GeoJSON.GeometryObject {
-  public var geometries: [GeoJSON.Geometry] {
+  var geometries: [GeoJSON.Geometry] {
     switch self {
     case .single(let geo): return [geo]
     case .multi(let geos): return geos

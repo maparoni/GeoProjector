@@ -110,7 +110,7 @@ public class GeoMapView: UIView {
   }
 }
 
-@available(iOS 13.0, *)
+@available(iOS 13.0, visionOS 1.0, *)
 public struct GeoMap: UIViewRepresentable {
   
   public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: UIColor? = nil, mapOutline: UIColor? = nil) {
@@ -167,7 +167,7 @@ public struct GeoMap: UIViewRepresentable {
 }
 
 #if DEBUG
-@available(iOS 13.0, macOS 11.0, *)
+@available(iOS 13.0, visionOS 1.0, macOS 11.0, *)
 struct GeoMap_Previews: PreviewProvider {
   static var previews: some View {
     GeoMap(

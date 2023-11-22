@@ -2,59 +2,62 @@ name: Swift
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   spm_macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: swift build
-    - name: Test
-      run: swift test
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
 
   spm_linux:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        swift: ["5.9.1", "5.7.3"]
     container:
-      image: swift:5.7
+      image: swift:${{ matrix.swift }}
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: swift build
-    - name: Test
-      run: swift test
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
 
   xcode_macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: xcodebuild build -scheme GeoProjector-Package -destination 'platform=macOS' 
+      - uses: actions/checkout@v4
+      - name: Build
+        run: xcodebuild build -scheme GeoProjector-Package -destination 'platform=macOS'
 
   xcode_ios:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: xcodebuild build -scheme GeoProjector-Package -destination 'name=iPhone 14' -sdk iphoneos
+      - uses: actions/checkout@v4
+      - name: Build
+        run: xcodebuild build -scheme GeoProjector-Package -destination 'name=iPhone 14' -sdk iphoneos
 
   cassini_macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: |
-        cd Examples
-        xcodebuild build -scheme 'Cassini' -destination 'platform=macOS' 
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          cd Examples
+          xcodebuild build -scheme 'Cassini' -destination 'platform=macOS'
 
   cassini_ios:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: |
-        cd Examples
-        xcodebuild build -scheme 'Cassini' -destination 'name=iPhone 14' -sdk iphoneos
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          cd Examples
+          xcodebuild build -scheme 'Cassini' -destination 'name=iPhone 14' -sdk iphoneos

@@ -153,7 +153,7 @@ public struct GeoMap: NSViewRepresentable {
 }
 
 #if DEBUG
-@available(iOS 13.0, macOS 11.0, *)
+@available(iOS 13.0, visionOS 1.0, macOS 11.0, *)
 struct GeoMap_Previews: PreviewProvider {
   static var previews: some View {
     GeoMap(
