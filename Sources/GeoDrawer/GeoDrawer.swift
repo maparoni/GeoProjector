@@ -152,7 +152,7 @@ extension GeoDrawer {
 #if canImport(CoreGraphics)
   public typealias Color = CGColor
 #else
-  public struct Color {
+  public struct Color: Hashable {
     public init(red: Double, green: Double, blue: Double, alpha: Double = 1) {
       self.red = red
       self.green = green
@@ -167,7 +167,7 @@ extension GeoDrawer {
   }
 #endif
 
-  public enum Content {
+  public enum Content: Hashable {
     case line(GeoJSON.LineString, stroke: Color)
     case polygon(GeoJSON.Polygon, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
     case circle(GeoJSON.Position, radius: Double, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
