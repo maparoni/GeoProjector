@@ -114,9 +114,6 @@ precious resources:
 
 ## License
 
-This library is available under the [Mozilla Public License 2.0](https://www.mozilla.org/en-US/MPL/2.0/). 
-This means that if you use and modify this library, you have to make your changes also available under the
-same license (or a compatible one). As long as you comply with this and keep copyright notices
-intact, you can however use the library in closed source projects.
+This library is available under the [MIT License](https://mit-license.org). Use it as you please according to those terms.
 
 The [examples](Examples/) are public domain and can be adapted freely.

@@ -4,13 +4,8 @@
 //
 //  Created by Adrian Schönig on 24/2/2023.
 //
-//
 // GeoProjector - Native Swift library for drawing map projections
-// Copyright (C) 2022 Corporoni Pty Ltd
-//
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// Copyright (C) 2022 Corporoni Pty Ltd. See LICENSE.
 
 #if canImport(UIKit)
 import UIKit
