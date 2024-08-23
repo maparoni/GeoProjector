@@ -19,7 +19,7 @@ import GeoProjector
 extension GeoDrawer {
   
   /// Draws the line into the current context
-  public func draw(_ line: GeoJSON.LineString, strokeColor: CGColor, in context: CGContext) {
+  public func draw(_ line: GeoJSON.LineString, strokeColor: CGColor, strokeWidth: Double = 2, in context: CGContext) {
     for points in convertLine(line.positions) {
       
       let path = CGMutablePath()
@@ -30,7 +30,7 @@ extension GeoDrawer {
       
       context.setStrokeColor(strokeColor)
 
-      context.setLineWidth(2)
+      context.setLineWidth(strokeWidth)
       context.setLineCap(.round)
       context.setLineJoin(.round)
       
@@ -201,8 +201,8 @@ extension GeoDrawer {
       switch content {
       case .circle:
         break // this will go above the outline, as they might go outside projection
-      case let .line(line, stroke):
-        draw(line, strokeColor: stroke, in: context)
+      case let .line(line, stroke, strokeWidth):
+        draw(line, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
       case let .polygon(polygon, fill, stroke, strokeWidth):
         draw(polygon, fillColor: fill, strokeColor: stroke, strokeWidth: strokeWidth, frame: bounds, in: context)
       }

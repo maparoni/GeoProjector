@@ -164,7 +164,7 @@ extension GeoDrawer {
 #endif
 
   public enum Content: Hashable {
-    case line(GeoJSON.LineString, stroke: Color)
+    case line(GeoJSON.LineString, stroke: Color, strokeWidth: Double = 2)
     case polygon(GeoJSON.Polygon, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
     case circle(GeoJSON.Position, radius: Double, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
   }
