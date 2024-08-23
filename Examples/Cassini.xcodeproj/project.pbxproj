@@ -7,15 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3A0743C52C782366009403F8 /* GeoDrawer in Frameworks */ = {isa = PBXBuildFile; productRef = 3A0743C42C782366009403F8 /* GeoDrawer */; };
+		3A0743C72C782366009403F8 /* GeoProjector in Frameworks */ = {isa = PBXBuildFile; productRef = 3A0743C62C782366009403F8 /* GeoProjector */; };
 		3A1B27CE29448ADA00271603 /* CassiniApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B27CD29448ADA00271603 /* CassiniApp.swift */; };
 		3A1B27D029448ADA00271603 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B27CF29448ADA00271603 /* ContentView.swift */; };
 		3A1B27D229448ADB00271603 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A1B27D129448ADB00271603 /* Assets.xcassets */; };
 		3A1B27D629448ADB00271603 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A1B27D529448ADB00271603 /* Preview Assets.xcassets */; };
-		3A1B27DE29448AFE00271603 /* GeoDrawer in Frameworks */ = {isa = PBXBuildFile; productRef = 3A1B27DD29448AFE00271603 /* GeoDrawer */; };
 		3A1B27E229455C8600271603 /* ContentView+Model.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B27E129455C8600271603 /* ContentView+Model.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		3A0743C22C782321009403F8 /* GeoProjector */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = GeoProjector; path = ..; sourceTree = "<group>"; };
 		3A1B27CA29448ADA00271603 /* Cassini.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cassini.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A1B27CD29448ADA00271603 /* CassiniApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CassiniApp.swift; sourceTree = "<group>"; };
 		3A1B27CF29448ADA00271603 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -23,7 +25,6 @@
 		3A1B27D329448ADB00271603 /* Cassini.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Cassini.entitlements; sourceTree = "<group>"; };
 		3A1B27D529448ADB00271603 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		3A1B27E129455C8600271603 /* ContentView+Model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ContentView+Model.swift"; sourceTree = "<group>"; };
-		3AFF3A45294D38220061E069 /* GeoProjector */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = GeoProjector; path = ..; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -31,7 +32,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3A1B27DE29448AFE00271603 /* GeoDrawer in Frameworks */,
+				3A0743C52C782366009403F8 /* GeoDrawer in Frameworks */,
+				3A0743C72C782366009403F8 /* GeoProjector in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,7 +81,7 @@
 		3A1B27DF29448DAD00271603 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				3AFF3A45294D38220061E069 /* GeoProjector */,
+				3A0743C22C782321009403F8 /* GeoProjector */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -101,7 +103,8 @@
 			);
 			name = Cassini;
 			packageProductDependencies = (
-				3A1B27DD29448AFE00271603 /* GeoDrawer */,
+				3A0743C42C782366009403F8 /* GeoDrawer */,
+				3A0743C62C782366009403F8 /* GeoProjector */,
 			);
 			productName = Cassini;
 			productReference = 3A1B27CA29448ADA00271603 /* Cassini.app */;
@@ -132,7 +135,7 @@
 			);
 			mainGroup = 3A1B27C129448ADA00271603;
 			packageReferences = (
-				3A1B27DC29448AFE00271603 /* XCRemoteSwiftPackageReference "GeoProjector" */,
+				3A0743C32C782366009403F8 /* XCRemoteSwiftPackageReference "GeoProjector" */,
 			);
 			productRefGroup = 3A1B27CB29448ADA00271603 /* Products */;
 			projectDirPath = "";
@@ -390,7 +393,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		3A1B27DC29448AFE00271603 /* XCRemoteSwiftPackageReference "GeoProjector" */ = {
+		3A0743C32C782366009403F8 /* XCRemoteSwiftPackageReference "GeoProjector" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/maparoni/GeoProjector";
 			requirement = {
@@ -401,10 +404,15 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		3A1B27DD29448AFE00271603 /* GeoDrawer */ = {
+		3A0743C42C782366009403F8 /* GeoDrawer */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3A1B27DC29448AFE00271603 /* XCRemoteSwiftPackageReference "GeoProjector" */;
+			package = 3A0743C32C782366009403F8 /* XCRemoteSwiftPackageReference "GeoProjector" */;
 			productName = GeoDrawer;
+		};
+		3A0743C62C782366009403F8 /* GeoProjector */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A0743C32C782366009403F8 /* XCRemoteSwiftPackageReference "GeoProjector" */;
+			productName = GeoProjector;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
