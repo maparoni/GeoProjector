@@ -9,49 +9,7 @@
 
 import GeoJSONKit
 
-#if canImport(AppKit) && !targetEnvironment(macCatalyst)
-import AppKit
-#elseif canImport(UIKit)
-import UIKit
-#endif
-
-extension GeoJSON.GeometryObject {
-  var geometries: [GeoJSON.Geometry] {
-    switch self {
-    case .single(let geo): return [geo]
-    case .multi(let geos): return geos
-    case .collection(let geoObjects): return geoObjects.flatMap(\.geometries)
-    }
-  }
-}
-
 extension GeoDrawer.Content {
-  
-  public static func content(for geoJSON: GeoJSON, color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil) -> [GeoDrawer.Content] {
-    let geometries: [GeoJSON.Geometry]
-    switch geoJSON.object {
-    case .geometry(let geo): geometries = geo.geometries
-    case .feature(let feature): geometries = feature.geometry.geometries
-    case .featureCollection(let features): geometries = features.flatMap(\.geometry.geometries)
-    }
-    
-    return geometries.map { Self.content(for: $0, color: color, polygonStroke: polygonStroke) }
-  }
-
-  public static func content(for geometry: GeoJSON.GeometryObject, color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil) -> [GeoDrawer.Content] {
-    return geometry.geometries.map { Self.content(for: $0, color: color, polygonStroke: polygonStroke) }
-  }
-  
-  public static func content(for geometry: GeoJSON.Geometry, color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil) -> GeoDrawer.Content {
-    switch geometry {
-    case .polygon(let polygon):
-      return .polygon(polygon, fill: color, stroke: polygonStroke?.0, strokeWidth: polygonStroke?.width ?? 0)
-    case .lineString(let line):
-      return .line(line, stroke: color)
-    case .point(let position):
-      return .circle(position, radius: 1, fill: color)
-    }
-  }
   
   public static func world() throws -> GeoJSON {
     try GeoJSON(geoJSONString: """
