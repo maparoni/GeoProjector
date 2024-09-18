@@ -52,7 +52,12 @@ public class GeoMapView: NSView {
     }
   }
 
-  
+  public var mapBackdrop: NSColor = .white {
+    didSet {
+      setNeedsDisplay(bounds)
+    }
+  }
+
   public override var frame: NSRect {
     didSet {
       _drawer = nil
@@ -87,6 +92,7 @@ public class GeoMapView: NSView {
       contents,
       mapBackground: mapBackground.cgColor,
       mapOutline: mapOutline.cgColor,
+      mapBackdrop: mapBackdrop.cgColor,
       in: context
     )
   }
@@ -95,13 +101,14 @@ public class GeoMapView: NSView {
 @available(macOS 10.15, *)
 public struct GeoMap: NSViewRepresentable {
   
-  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: NSColor? = nil, mapOutline: NSColor? = nil) {
+  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: NSColor? = nil, mapOutline: NSColor? = nil, mapBackdrop: NSColor? = nil) {
     self.contents = contents
     self.projection = projection
     self.zoomTo = zoomTo
     self.insets = insets
     self.mapBackground = mapBackground
     self.mapOutline = mapOutline
+    self.mapBackdrop = mapBackdrop
   }
   
   public var contents: [GeoDrawer.Content] = []
@@ -115,6 +122,8 @@ public struct GeoMap: NSViewRepresentable {
   public var mapBackground: NSColor? = nil
   
   public var mapOutline: NSColor? = nil
+  
+  public var mapBackdrop: NSColor? = nil
   
   public typealias NSViewType = GeoMapView
   
@@ -130,6 +139,9 @@ public struct GeoMap: NSViewRepresentable {
     if let mapOutline {
       view.mapOutline = mapOutline
     }
+    if let mapBackdrop {
+      view.mapBackdrop = mapBackdrop
+    }
     return view
   }
   
@@ -143,6 +155,9 @@ public struct GeoMap: NSViewRepresentable {
     }
     if let mapOutline {
       view.mapOutline = mapOutline
+    }
+    if let mapBackdrop {
+      view.mapBackdrop = mapBackdrop
     }
   }
 
