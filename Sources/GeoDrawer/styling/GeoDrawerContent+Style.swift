@@ -5,6 +5,7 @@
 //  Created by Adrian Schönig on 18/9/2024.
 //
 
+import Foundation
 import GeoJSONKit
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
