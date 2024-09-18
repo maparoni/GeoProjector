@@ -108,13 +108,14 @@ public class GeoMapView: UIView {
 @available(iOS 13.0, visionOS 1.0, *)
 public struct GeoMap: UIViewRepresentable {
   
-  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: UIColor? = nil, mapOutline: UIColor? = nil) {
+  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: UIColor? = nil, mapOutline: UIColor? = nil, mapBackdrop: UIColor? = nil) {
     self.contents = contents
     self.projection = projection
     self.zoomTo = zoomTo
     self.insets = insets
     self.mapBackground = mapBackground
     self.mapOutline = mapOutline
+    self.mapBackdrop = mapBackdrop
   }
   
   public var contents: [GeoDrawer.Content] = []
@@ -128,6 +129,8 @@ public struct GeoMap: UIViewRepresentable {
   public var mapBackground: UIColor? = nil
   
   public var mapOutline: UIColor? = nil
+  
+  public var mapBackdrop: UIColor? = nil
   
   public typealias UIViewType = GeoMapView
   
@@ -143,6 +146,9 @@ public struct GeoMap: UIViewRepresentable {
     if let mapOutline {
       view.mapOutline = mapOutline
     }
+    if let mapBackdrop {
+      view.backgroundColor = mapBackdrop
+    }
     return view
   }
   
@@ -156,6 +162,9 @@ public struct GeoMap: UIViewRepresentable {
     }
     if let mapOutline {
       view.mapOutline = mapOutline
+    }
+    if let mapBackdrop {
+      view.backgroundColor = mapBackdrop
     }
   }
 
