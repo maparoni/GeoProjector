@@ -156,10 +156,10 @@ extension GeoDrawer {
       self.alpha = alpha
     }
     
-    public let red: Double
-    public let green: Double
-    public let blue: Double
-    public let alpha: Double
+    public var red: Double
+    public var green: Double
+    public var blue: Double
+    public var alpha: Double
     
     public func copy(alpha: Double) -> Self? {
       guard alpha != self.alpha else { return nil }
