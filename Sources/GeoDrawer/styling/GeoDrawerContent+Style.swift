@@ -26,7 +26,28 @@ extension GeoJSON.GeometryObject {
 
 extension GeoDrawer.Content {
   
-  public static func content(for geoJSON: GeoJSON, color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil) -> [GeoDrawer.Content] {
+  public struct DefaultStyle {
+    /// Fallback color to use for points, lines, and **fill** of polygons.
+    public var color: GeoDrawer.Color
+    
+    /// Fallback color and width to use for polygons.
+    public var polygonStroke: (GeoDrawer.Color, width: Double)? = nil
+    
+    /// Fallback stroke width for lines
+    public var lineWidth: Double = 2
+    
+    /// Fallback radius to use for points.
+    public var pointRadius: Double = 1
+    
+    public init(color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil, lineWidth: Double = 2, pointRadius: Double = 1) {
+      self.color = color
+      self.polygonStroke = polygonStroke
+      self.lineWidth = lineWidth
+      self.pointRadius = pointRadius
+    }
+  }
+  
+  public static func content(for geoJSON: GeoJSON, style: DefaultStyle) -> [GeoDrawer.Content] {
     let elements: [(GeoJSON.Geometry, [String: AnyHashable]?)]
     switch geoJSON.object {
     case .geometry(let geo):
@@ -40,13 +61,13 @@ extension GeoDrawer.Content {
     }
     
     return elements.map { geometry, properties in
-      Self.content(for: geometry, properties: properties, color: color, polygonStroke: polygonStroke)
+      Self.content(for: geometry, properties: properties, style: style)
     }
   }
 
-  public static func content(for geometry: GeoJSON.GeometryObject, properties: [String: AnyHashable]? = nil, color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil) -> [GeoDrawer.Content] {
+  public static func content(for geometry: GeoJSON.GeometryObject, properties: [String: AnyHashable]? = nil, style: DefaultStyle) -> [GeoDrawer.Content] {
     return geometry.geometries.map {
-      Self.content(for: $0, properties: properties, color: color, polygonStroke: polygonStroke)
+      Self.content(for: $0, properties: properties, style: style)
     }
   }
   
@@ -56,31 +77,30 @@ extension GeoDrawer.Content {
   /// - Parameters:
   ///   - geometry: The geometry
   ///   - properties: Optional properties. If these follow [GeoJSON simplespec 1.1](https://github.com/mapbox/simplestyle-spec/tree/master/1.1.0), then those style is preferred over explicitly set style. Points can additionally be adjusted in size by setting `circle-radius`.
-  ///   - color: Color to use for points, lines, and **fill** of polygons.
-  ///   - polygonStroke: Color and width to use for polygons.
+  ///   - style: Default style to use if not otherwise specified in `properties`
   /// - Returns: Drawable content.
-  public static func content(for geometry: GeoJSON.Geometry, properties: [String: AnyHashable]? = nil, color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil) -> GeoDrawer.Content {
+  public static func content(for geometry: GeoJSON.Geometry, properties: [String: AnyHashable]? = nil, style: DefaultStyle) -> GeoDrawer.Content {
     switch geometry {
     case .polygon(let polygon):
       return .polygon(
         polygon,
-        fill: Self.color(properties, colorKey: "fill", alphaKey: "fill-opacity") ?? color,
-        stroke: Self.color(properties, colorKey: "stroke", alphaKey: "stroke-opacity") ?? polygonStroke?.0,
-        strokeWidth: (properties?["stroke-width"] as? Double) ?? polygonStroke?.width ?? 0
+        fill: Self.color(properties, colorKey: "fill", alphaKey: "fill-opacity") ?? style.color,
+        stroke: Self.color(properties, colorKey: "stroke", alphaKey: "stroke-opacity") ?? style.polygonStroke?.0,
+        strokeWidth: (properties?["stroke-width"] as? Double) ?? style.polygonStroke?.width ?? 0
       )
     case .lineString(let line):
       return .line(
         line,
-        stroke: Self.color(properties, colorKey: "stroke", alphaKey: "stroke-opacity") ?? color,
-        strokeWidth: properties?["stroke-width"] as? Double ?? 2
+        stroke: Self.color(properties, colorKey: "stroke", alphaKey: "stroke-opacity") ?? style.color,
+        strokeWidth: properties?["stroke-width"] as? Double ?? style.lineWidth
       )
     case .point(let position):
       return .circle(
         position,
-        radius: properties?["circle-radius"] as? Double ?? 1,
-        fill: Self.color(properties, colorKey: "fill", alphaKey: "fill-opacity") ?? color,
+        radius: properties?["circle-radius"] as? Double ?? style.pointRadius,
+        fill: Self.color(properties, colorKey: "fill", alphaKey: "fill-opacity") ?? style.color,
         stroke: Self.color(properties, colorKey: "stroke", alphaKey: "stroke-opacity"),
-        strokeWidth: (properties?["stroke-width"] as? Double) ?? 0
+        strokeWidth: (properties?["stroke-width"] as? Double) ?? style.lineWidth
       )
     }
   }
