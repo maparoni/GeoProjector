@@ -69,7 +69,6 @@ public class GeoMapView: UIView {
         size: .init(frame.size),
         projection: projection,
         zoomTo: zoomTo,
-        zoomOutFactor: 5,
         insets: insets
       )
       _drawer = drawer
@@ -175,7 +174,10 @@ public struct GeoMap: UIViewRepresentable {
 struct GeoMap_Previews: PreviewProvider {
   static var previews: some View {
     GeoMap(
-      contents: try! GeoDrawer.Content.content(for: GeoDrawer.Content.countries(), color: .init(red: 0, green: 1, blue: 0, alpha: 0)),
+      contents: try! GeoDrawer.Content.content(
+        for: GeoDrawer.Content.countries(),
+        style: .init(color: .init(red: 0, green: 1, blue: 0, alpha: 0))
+      ),
       projection: Projections.Cassini()
     )
       .previewLayout(.fixed(width: 300, height: 300))

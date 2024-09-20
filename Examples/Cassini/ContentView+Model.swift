@@ -111,7 +111,7 @@ extension ContentView {
       
       layers.append(.init(
         name: preferredName ?? "New Layer",
-        contents: GeoDrawer.Content.content(for: geoJSON, color: color),
+        contents: GeoDrawer.Content.content(for: geoJSON, style: .init(color: color)),
         color: color
       ))
     }
