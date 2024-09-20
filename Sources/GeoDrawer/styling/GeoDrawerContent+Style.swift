@@ -39,11 +39,15 @@ extension GeoDrawer.Content {
     /// Fallback radius to use for points.
     public var pointRadius: Double = 1
     
-    public init(color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil, lineWidth: Double = 2, pointRadius: Double = 1) {
+    /// Alpha to apply on every point or circle
+    public var pointAlpha: Double = 1
+    
+    public init(color: GeoDrawer.Color, polygonStroke: (GeoDrawer.Color, width: Double)? = nil, lineWidth: Double = 2, pointRadius: Double = 1, pointAlpha: Double = 1) {
       self.color = color
       self.polygonStroke = polygonStroke
       self.lineWidth = lineWidth
       self.pointRadius = pointRadius
+      self.pointAlpha = pointAlpha
     }
   }
   
@@ -88,17 +92,20 @@ extension GeoDrawer.Content {
         stroke: Self.color(properties, colorKey: "stroke", alphaKey: "stroke-opacity") ?? style.polygonStroke?.0,
         strokeWidth: (properties?["stroke-width"] as? Double) ?? style.polygonStroke?.width ?? 0
       )
+    
     case .lineString(let line):
       return .line(
         line,
         stroke: Self.color(properties, colorKey: "stroke", alphaKey: "stroke-opacity") ?? style.color,
         strokeWidth: properties?["stroke-width"] as? Double ?? style.lineWidth
       )
+    
     case .point(let position):
+      let baseFill = Self.color(properties, colorKey: "fill", alphaKey: "fill-opacity") ?? style.color
       return .circle(
         position,
         radius: properties?["circle-radius"] as? Double ?? style.pointRadius,
-        fill: Self.color(properties, colorKey: "fill", alphaKey: "fill-opacity") ?? style.color,
+        fill: baseFill.copy(alpha: baseFill.alpha * style.pointAlpha) ?? baseFill,
         stroke: Self.color(properties, colorKey: "stroke", alphaKey: "stroke-opacity"),
         strokeWidth: (properties?["stroke-width"] as? Double) ?? style.lineWidth
       )
