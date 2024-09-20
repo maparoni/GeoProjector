@@ -31,7 +31,7 @@ struct CassiniApp: App {
         name: "Continents",
         contents: try! GeoDrawer.Content.content(
           for: GeoDrawer.Content.countries(),
-          color: CassiniApp.Colors.continents.cgColor
+          style: .init(color: CassiniApp.Colors.continents.cgColor)
         ),
         color: CassiniApp.Colors.continents.cgColor
       )
