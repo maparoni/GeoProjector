@@ -160,6 +160,13 @@ extension GeoDrawer {
     public let green: Double
     public let blue: Double
     public let alpha: Double
+    
+    public func copy(alpha: Double) -> Self? {
+      guard alpha != self.alpha else { return nil }
+      var updated = self
+      updated.alpha = alpha
+      return updated
+    }
   }
 #endif
 
