@@ -91,11 +91,12 @@ extension Projection {
       height: size.height - insets.top - insets.bottom
     )
     let pointInAvailable: Point
-    if let zoomTo {
+    if let zoomTo, zoomTo.size != .zero {
       pointInAvailable = zoomedTranslate(point, zoomTo: zoomTo, to: availableSize)
     } else {
       pointInAvailable = simpleTranslate(point, to: availableSize)
     }
+    assert(pointInAvailable.isGood)
     
     let x: Double = pointInAvailable.x + insets.left
     let y: Double
@@ -104,7 +105,9 @@ extension Projection {
 #else
     y = (availableSize.height - pointInAvailable.y) + insets.top
 #endif
-    return Point(x: x, y: y)
+    let result = Point(x: x, y: y)
+    assert(result.isGood)
+    return result
   }
   
   private func simpleTranslate(_ point: Point, to size: Size) -> Point {
@@ -137,6 +140,7 @@ extension Projection {
   }
   
   private func zoomedTranslate(_ point: Point, zoomTo: Rect, to size: Size) -> Point {
+    assert(zoomTo.size != .zero)
     let myRatio = zoomTo.size.aspectRatio
     let targetRatio = size.aspectRatio
     
@@ -181,5 +185,11 @@ extension Point {
 extension Size {
   var aspectRatio: Double {
     width / height
+  }
+}
+
+fileprivate extension Point {
+  var isGood: Bool {
+    !x.isNaN && !y.isNaN && !x.isInfinite && !y.isInfinite
   }
 }
