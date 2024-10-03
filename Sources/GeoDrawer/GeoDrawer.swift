@@ -220,8 +220,11 @@ extension GeoDrawer {
     // 3. Now translate the projected points into point coordinates to draw
     let converted = projected
       .map { (unproj, projected) -> (Point, Point?, Grouping) in
+        assert(unproj.isGood)
         if let projected {
-          return (unproj, projection.translate(projected, to: size, zoomTo: zoomTo, insets: insets), projection.willWrap(unproj) ? .wrapped : .notWrapped)
+          let proj = projection.translate(projected, to: size, zoomTo: zoomTo, insets: insets)
+          assert(proj.isGood)
+          return (unproj, proj, projection.willWrap(unproj) ? .wrapped : .notWrapped)
         } else {
           return (unproj, nil, .notProjected)
         }
@@ -265,7 +268,11 @@ extension GeoDrawer {
           // When "resuming" the same group, connect with the previous points
           // in the group, but interpolate again.
           let interpolated = Interpolator.interpolate(from: last, to: unproj, maxDiff: 0.0025, projector: projection.project(_:))
-          let translated = interpolated.map { ($0.0, projection.translate($0.1, to: size, zoomTo: zoomTo, insets: insets)) }
+          let translated = interpolated.map {
+            let translated = projection.translate($0.1, to: size, zoomTo: zoomTo, insets: insets)
+            assert(translated.isGood)
+            return ($0.0, translated)
+          }
           new.append(contentsOf: translated)
         }
         if let proj {
@@ -285,5 +292,11 @@ extension GeoDrawer {
       }
     }
     return [wraps.map(\.1), unwraps.map(\.1)].filter { !$0.isEmpty }
+  }
+}
+
+fileprivate extension Point {
+  var isGood: Bool {
+    !x.isNaN && !y.isNaN && !x.isInfinite && !y.isInfinite
   }
 }
