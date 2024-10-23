@@ -20,103 +20,111 @@ extension GeoDrawer {
   
   /// Draws the line into the current context
   public func draw(_ line: GeoJSON.LineString, strokeColor: CGColor, strokeWidth: Double = 2, in context: CGContext) {
-    for points in convertLine(line.positions) {
-      
-      let path = CGMutablePath()
-      path.move(to: points[0].cgPoint)
-      for point in points[1...] {
-        path.addLine(to: point.cgPoint)
-      }
-      
-      context.setStrokeColor(strokeColor)
-
-      context.setLineWidth(strokeWidth)
-      context.setLineCap(.round)
-      context.setLineJoin(.round)
-      
-      context.addPath(path)
-      context.strokePath()
+    for line in project(line) {
+      draw(line, strokeColor: strokeColor, strokeWidth: strokeWidth, in: context)
     }
   }
   
   public func draw(_ polygon: GeoJSON.Polygon, fillColor: CGColor? = nil, strokeColor: CGColor? = nil, strokeWidth: Double = 2, frame: CGRect, in context: CGContext) {
-    // In some projections such as Azimuthal, we might need to colour a cut-out
-    // rather than the projected polygon.
-    let invert: Bool = invertCheck?(polygon) ?? false
-    
-    for points in convertLine(polygon.exterior.positions) {
-      
-      let path = CGMutablePath()
-      path.move(to: points[0].cgPoint)
-      for point in points[1...] {
-        path.addLine(to: point.cgPoint)
-      }
-      
-      // First we need to create a clip path, i.e., the area where we allowed to fill in the actual polygon.
-      // This is the whole frame *minus* the interior polygons.
-      // Useful example: https://samplecodebank.blogspot.com/2013/06/UIBezierPath-addClip-example.html
-      if !polygon.interiors.isEmpty {
-        let rect = CGMutablePath()
-        rect.move(to: frame.origin)
-        rect.addLine(to: CGPoint(x: frame.minX, y: frame.maxY))
-        rect.addLine(to: CGPoint(x: frame.maxX, y: frame.maxY))
-        rect.addLine(to: CGPoint(x: frame.maxX, y: frame.minY))
-        
-        for interior in polygon.interiors {
-          for interiorPoints in convertLine(interior.positions) {
-            rect.move(to: interiorPoints[0].cgPoint)
-            for point in interiorPoints[1...] {
-              rect.addLine(to: point.cgPoint)
-            }
-          }
-        }
-        
-        context.addPath(rect)
-        context.clip(using: .evenOdd)
-      }
-      
-      // Then we can draw the polygon
-      
-      context.addPath(path)
-
-      if let fillColor {
-        if invert {
-          // TODO: This doesn't actually invert. Would be nice to do that later.
-          context.setStrokeColor(fillColor)
-          context.setLineWidth(strokeWidth)
-          context.setLineCap(.round)
-          context.setLineJoin(.round)
-          context.strokePath()
-
-        } else {
-          context.setFillColor(fillColor)
-          context.setLineWidth(0)
-          context.fillPath()
-        }
-        
-      }
-      
-      if let strokeColor {
-        context.addPath(path)
-        context.setStrokeColor(strokeColor)
-        context.setLineWidth(strokeWidth)
-        context.setLineCap(.round)
-        context.setLineJoin(.round)
-        context.strokePath()
-      }
+    for polygon in project(polygon) {
+      draw(polygon, fillColor: fillColor, strokeColor: strokeColor, strokeWidth: strokeWidth, frame: frame, in: context)
     }
   }
   
   func drawCircle(_ position: GeoJSON.Position, radius: CGFloat, fillColor: CGColor, strokeColor: CGColor? = nil, strokeWidth: Double = 2, in context: CGContext) {
-    guard let origin = converter(position) else { return }
+    guard let center = converter(position)?.0 else { return }
+    drawCircle(center, radius: radius, fillColor: fillColor, strokeColor: strokeColor, strokeWidth: strokeWidth, in: context)
+  }
+  
+  func draw(_ projectedLine: ProjectedLineString, strokeColor: CGColor, strokeWidth: Double, in context: CGContext) {
+    let points = projectedLine.points
+    let path = CGMutablePath()
+    path.move(to: points[0].cgPoint)
+    for point in points[1...] {
+      path.addLine(to: point.cgPoint)
+    }
     
-    context.addArc(center: origin.0.cgPoint, radius: radius / 2, startAngle: 0, endAngle: CGFloat(Double.pi * 2), clockwise: true)
+    context.setStrokeColor(strokeColor)
+
+    context.setLineWidth(strokeWidth)
+    context.setLineCap(.round)
+    context.setLineJoin(.round)
+    
+    context.addPath(path)
+    context.strokePath()
+  }
+  
+  func draw(_ polygon: ProjectedPolygon, fillColor: CGColor?, strokeColor: CGColor?, strokeWidth: Double, frame: CGRect, in context: CGContext) {
+    let invert = polygon.invert
+    
+    let points = polygon.exterior
+    let path = CGMutablePath()
+    path.move(to: points[0].cgPoint)
+    for point in points[1...] {
+      path.addLine(to: point.cgPoint)
+    }
+    
+    // First we need to create a clip path, i.e., the area where we allowed to fill in the actual polygon.
+    // This is the whole frame *minus* the interior polygons.
+    // Useful example: https://samplecodebank.blogspot.com/2013/06/UIBezierPath-addClip-example.html
+    if !polygon.interiors.isEmpty {
+      let rect = CGMutablePath()
+      rect.move(to: frame.origin)
+      rect.addLine(to: CGPoint(x: frame.minX, y: frame.maxY))
+      rect.addLine(to: CGPoint(x: frame.maxX, y: frame.maxY))
+      rect.addLine(to: CGPoint(x: frame.maxX, y: frame.minY))
+      
+      for interiorPoints in polygon.interiors {
+        rect.move(to: interiorPoints[0].cgPoint)
+        for point in interiorPoints[1...] {
+          rect.addLine(to: point.cgPoint)
+        }
+      }
+      
+      context.addPath(rect)
+      context.clip(using: .evenOdd)
+    }
+    
+    // Then we can draw the polygon
+    
+    context.addPath(path)
+
+    if let fillColor {
+      if invert {
+        // TODO: This doesn't actually invert. Would be nice to do that later.
+        context.setStrokeColor(fillColor)
+        context.setLineWidth(strokeWidth)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        context.strokePath()
+
+      } else {
+        context.setFillColor(fillColor)
+        context.setLineWidth(0)
+        context.fillPath()
+      }
+      
+    }
+    
+    if let strokeColor {
+      context.addPath(path)
+      context.setStrokeColor(strokeColor)
+      context.setLineWidth(strokeWidth)
+      context.setLineCap(.round)
+      context.setLineJoin(.round)
+      context.strokePath()
+    }
+  }
+
+  
+  func drawCircle(_ center: Point, radius: CGFloat, fillColor: CGColor, strokeColor: CGColor? = nil, strokeWidth: Double = 2, in context: CGContext) {
+    context.addArc(center: center.cgPoint, radius: radius / 2, startAngle: 0, endAngle: CGFloat(Double.pi * 2), clockwise: true)
 
     context.setFillColor(fillColor)
     context.fillPath()
 
     if let strokeColor {
-      context.addArc(center: origin.0.cgPoint, radius: radius / 2, startAngle: 0, endAngle: CGFloat(Double.pi * 2), clockwise: true)
+      context.addArc(center: center.cgPoint, radius: radius / 2, startAngle: 0, endAngle: CGFloat(Double.pi * 2), clockwise: true)
       context.setStrokeColor(strokeColor)
       context.setLineWidth(strokeWidth)
       context.strokePath()
@@ -181,7 +189,11 @@ extension GeoDrawer {
 extension GeoDrawer {
   
   public func draw(_ contents: [Content], mapBackground: CGColor? = nil, mapOutline: CGColor? = nil, mapBackdrop: CGColor? = nil, in context: CGContext) {
-    
+    let projected = contents.compactMap(project)
+    draw(projected, mapBackground: mapBackground, mapOutline: mapOutline, mapBackdrop: mapBackdrop, in: context)
+  }
+  
+  func draw(_ contents: [ProjectedContent], mapBackground: CGColor?, mapOutline: CGColor?, mapBackdrop: CGColor?, in context: CGContext) {
     let size = CGSize(width: self.size.width, height: self.size.height)
     let bounds = CGRect(origin: .zero, size: size)
     
@@ -201,10 +213,14 @@ extension GeoDrawer {
       switch content {
       case .circle:
         break // this will go above the outline, as they might go outside projection
-      case let .line(line, stroke, strokeWidth):
-        draw(line, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
-      case let .polygon(polygon, fill, stroke, strokeWidth):
-        draw(polygon, fillColor: fill, strokeColor: stroke, strokeWidth: strokeWidth, frame: bounds, in: context)
+      case let .line(lines, stroke, strokeWidth):
+        for line in lines {
+          draw(line, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
+        }
+      case let .polygon(polygons, fill, stroke, strokeWidth):
+        for polygon in polygons {
+          draw(polygon, fillColor: fill, strokeColor: stroke, strokeWidth: strokeWidth, frame: bounds, in: context)
+        }
       }
     }
     

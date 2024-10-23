@@ -16,12 +16,16 @@ import GeoJSONKit
 
 public class GeoMapView: UIView {
   public var contents: [GeoDrawer.Content] = [] {
-    didSet { setNeedsDisplay(bounds) }
+    didSet {
+      _projected = nil
+      setNeedsDisplay(bounds)
+    }
   }
   
   public var projection: Projection = Projections.Equirectangular() {
     didSet {
       _drawer = nil
+      _projected = nil
       setNeedsDisplay(bounds)
     }
   }
@@ -29,6 +33,7 @@ public class GeoMapView: UIView {
   public var zoomTo: GeoJSON.BoundingBox? = nil {
     didSet {
       _drawer = nil
+      _projected = nil
       setNeedsDisplay(bounds)
     }
   }
@@ -36,6 +41,7 @@ public class GeoMapView: UIView {
   public var insets: GeoProjector.EdgeInsets = .zero {
     didSet {
       _drawer = nil
+      _projected = nil
       setNeedsDisplay(bounds)
     }
   }
@@ -56,7 +62,20 @@ public class GeoMapView: UIView {
   public override var frame: CGRect {
     didSet {
       _drawer = nil
+      _projected = nil
       setNeedsDisplay(bounds)
+    }
+  }
+  
+  
+  private var _projected: [GeoDrawer.ProjectedContent]!
+  private var projected: [GeoDrawer.ProjectedContent] {
+    if let _projected {
+      return _projected
+    } else {
+      let projected = contents.compactMap(drawer.project(_:))
+      _projected = projected
+      return projected
     }
   }
   
@@ -93,7 +112,7 @@ public class GeoMapView: UIView {
     
     // Use Core Graphics functions to draw the content of your view
     drawer.draw(
-      contents,
+      projected,
       mapBackground: mapBackground.cgColor,
       mapOutline: mapOutline.cgColor,
       mapBackdrop: background.cgColor,

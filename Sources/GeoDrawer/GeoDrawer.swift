@@ -178,14 +178,70 @@ extension GeoDrawer {
   
 }
 
+// MARK: - Projected content
+
+extension GeoDrawer {
+  
+  struct ProjectedLineString: Hashable {
+    let points: [Point]
+  }
+  
+  struct ProjectedPolygon: Hashable {
+    let exterior: [Point]
+    let interiors: [[Point]]
+    
+    // In some projections such as Azimuthal, we might need to colour a cut-out
+    // rather than the projected polygon.
+    let invert: Bool
+  }
+  
+  enum ProjectedContent: Hashable {
+    case line([ProjectedLineString], stroke: Color, strokeWidth: Double)
+    case polygon([ProjectedPolygon], fill: Color, stroke: Color?, strokeWidth: Double)
+    case circle(Point, radius: Double, fill: Color, stroke: Color?, strokeWidth: Double)
+  }
+}
+
+extension GeoDrawer {
+  func project(_ line: GeoJSON.LineString) -> [ProjectedLineString] {
+    let lines = convertLine(line.positions)
+    return lines.map(ProjectedLineString.init(points:))
+  }
+  
+  func project(_ polygon: GeoJSON.Polygon) -> [ProjectedPolygon] {
+    let invert: Bool = invertCheck?(polygon) ?? false
+    let interiors = polygon.interiors.flatMap { convertLine($0.positions) }
+    return convertLine(polygon.exterior.positions).map { points in
+      return .init(exterior: points, interiors: interiors, invert: invert)
+    }
+  }
+  
+  func project(_ content: Content) -> ProjectedContent? {
+    switch content {
+    case let .line(line, stroke, strokeWidth):
+      return .line(project(line), stroke: stroke, strokeWidth: strokeWidth)
+    case let .polygon(polygon, fill, stroke, strokeWidth):
+      return .polygon(project(polygon), fill: fill, stroke: stroke, strokeWidth: strokeWidth)
+    case let .circle(center, radius, fill, stroke, strokeWidth):
+      guard let point = converter(center)?.0 else { return nil }
+      return .circle(point, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
+    }
+  }
+}
+
 // MARK: - Line helper
 
 extension GeoDrawer {
   
-  private enum Grouping: Equatable {
+  enum Grouping: Equatable {
     case wrapped
     case notWrapped
     case notProjected
+  }
+  
+  /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
+  func convertLine(_ positions: [GeoJSON.Position]) -> [[Point]] {
+    Self.convertLine(positions, projection: projection, size: size, zoomTo: zoomTo, insets: insets, converter: converter)
   }
   
   private static func projectLine(_ positions: [GeoJSON.Position], projection: Projection) -> [(Point, Point?)] {
@@ -208,10 +264,11 @@ extension GeoDrawer {
   }
   
   /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
-  func convertLine(_ positions: [GeoJSON.Position]) -> [[Point]] {
+  private static func convertLine(_ positions: [GeoJSON.Position], projection: Projection?, size: Size, zoomTo: Rect?, insets: EdgeInsets, converter: (GeoJSON.Position) -> (Point, Bool)?) -> [[Point]] {
+    
     guard let projection else {
       return [positions.compactMap {
-        self.converter($0)?.0
+        converter($0)?.0
       }]
     }
     
