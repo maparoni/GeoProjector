@@ -17,7 +17,8 @@ import GeoJSONKit
 public class GeoMapView: UIView {
   public var contents: [GeoDrawer.Content] = [] {
     didSet {
-      projectProgress = .idle
+      if contents == oldValue { return }
+      invalidateProjectedContents()
       setNeedsDisplay()
     }
   }
@@ -25,7 +26,7 @@ public class GeoMapView: UIView {
   public var projection: Projection = Projections.Equirectangular() {
     didSet {
       _drawer = nil
-      projectProgress = .idle
+      invalidateProjectedContents()
       setNeedsDisplay()
     }
   }
@@ -41,7 +42,7 @@ public class GeoMapView: UIView {
   public var insets: GeoProjector.EdgeInsets = .zero {
     didSet {
       _drawer = nil
-      projectProgress = .idle
+      invalidateProjectedContents()
       setNeedsDisplay()
     }
   }
@@ -62,7 +63,7 @@ public class GeoMapView: UIView {
   public override var frame: CGRect {
     didSet {
       _drawer = nil
-      projectProgress = .idle
+      invalidateProjectedContents()
       setNeedsDisplay()
     }
   }
@@ -84,7 +85,6 @@ public class GeoMapView: UIView {
   }
   
   public override func draw(_ rect: CGRect) {
-    super.draw(rect)
     
     // Get the current graphics context and cast it to a CGContext
     let context = UIGraphicsGetCurrentContext()!
@@ -97,6 +97,19 @@ public class GeoMapView: UIView {
     } else {
       background = .white
     }
+    
+    // Don't draw if we're busy as this will flicker weirdly
+    let projected: [GeoDrawer.ProjectedContent]
+    switch projectProgress {
+    case .busy(_, .some(let previous)):
+      projected = previous
+    case .busy(_, .none), .idle:
+      return // Don't update drawing; will get called again instead when finished
+    case .finished(let finished):
+      projected = finished
+    }
+    
+    super.draw(rect)
     
     // Use Core Graphics functions to draw the content of your view
     drawer.draw(
@@ -114,40 +127,46 @@ public class GeoMapView: UIView {
   
   enum ProjectionProgress {
     case finished([GeoDrawer.ProjectedContent])
-    case busy(Task<Void, Never>)
+    case busy(Task<Void, Never>, previously: [GeoDrawer.ProjectedContent]?)
     case idle
   }
   
   private var projectProgress = ProjectionProgress.idle
-  private var projected: [GeoDrawer.ProjectedContent] {
-    switch projectProgress {
-    case .finished(let array):
-      return array
-    case .busy:
-      return []
-    case .idle:
-      updateProjectedContents()
-      return []
-    }
-  }
   
-  private func updateProjectedContents() {
+  private func invalidateProjectedContents() {
+    let previous: [GeoDrawer.ProjectedContent]?
+    switch projectProgress {
+    case .finished(let projected):
+      previous = projected
+    case .busy(let task, let previously):
+      task.cancel()
+      previous = previously
+    case .idle:
+      previous = nil
+    }
+
     projectProgress = .busy(Task.detached(priority: .high) { [weak self] in
       guard let self else { return }
       let contents = await self.contents
       let drawer = await self.drawer
       
       // This can be slow
-      let projected: [GeoDrawer.ProjectedContent] = contents.compactMap(drawer.project)
-      if Task.isCancelled {
-        return
+      var projected: [GeoDrawer.ProjectedContent] = []
+      for content in contents {
+        if Task.isCancelled {
+          return
+        }
+        if let item = drawer.project(content) {
+          projected.append(item)
+        }
       }
       
+      let finished = projected
       await MainActor.run {
-        self.projectProgress = .finished(projected)
-        self.setNeedsDisplay()
+        self.projectProgress = .finished(finished)
+        self.setNeedsDisplay(self.bounds)
       }
-    })
+    }, previously: previous)
   }
 }
 

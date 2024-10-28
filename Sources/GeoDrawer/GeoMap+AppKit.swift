@@ -16,12 +16,16 @@ import GeoJSONKit
 
 public class GeoMapView: NSView {
   public var contents: [GeoDrawer.Content] = [] {
-    didSet { setNeedsDisplay(bounds) }
+    didSet {
+      invalidateProjectedContents()
+      setNeedsDisplay(bounds)
+    }
   }
   
   public var projection: Projection = Projections.Equirectangular() {
     didSet {
       _drawer = nil
+      invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
   }
@@ -29,6 +33,7 @@ public class GeoMapView: NSView {
   public var zoomTo: GeoJSON.BoundingBox? = nil {
     didSet {
       _drawer = nil
+      invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
   }
@@ -36,6 +41,7 @@ public class GeoMapView: NSView {
   public var insets: GeoProjector.EdgeInsets = .zero {
     didSet {
       _drawer = nil
+      invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
   }
@@ -61,6 +67,7 @@ public class GeoMapView: NSView {
   public override var frame: NSRect {
     didSet {
       _drawer = nil
+      invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
   }
@@ -82,19 +89,76 @@ public class GeoMapView: NSView {
   }
   
   public override func draw(_ rect: NSRect) {
-    super.draw(rect)
+    // Don't draw if we're busy as this will flicker weirdly
+    let projected: [GeoDrawer.ProjectedContent]
+    switch projectProgress {
+    case .busy(_, .some(let previous)):
+      projected = previous
+    case .busy(_, .none), .idle:
+      return // Don't update drawing; will get called again instead when finished
+    case .finished(let finished):
+      projected = finished
+    }
     
+    super.draw(rect)
+
     // Get the current graphics context and cast it to a CGContext
     let context = NSGraphicsContext.current!.cgContext
     
     // Use Core Graphics functions to draw the content of your view
     drawer.draw(
-      contents,
+      projected,
       mapBackground: mapBackground.cgColor,
       mapOutline: mapOutline.cgColor,
       mapBackdrop: mapBackdrop.cgColor,
       in: context
     )
+  }
+  
+  // MARK: - Performance
+  
+  enum ProjectionProgress {
+    case finished([GeoDrawer.ProjectedContent])
+    case busy(Task<Void, Never>, previously: [GeoDrawer.ProjectedContent]?)
+    case idle
+  }
+  
+  private var projectProgress = ProjectionProgress.idle
+  
+  private func invalidateProjectedContents() {
+    let previous: [GeoDrawer.ProjectedContent]?
+    switch projectProgress {
+    case .finished(let projected):
+      previous = projected
+    case .busy(let task, let previously):
+      task.cancel()
+      previous = previously
+    case .idle:
+      previous = nil
+    }
+
+    projectProgress = .busy(Task.detached(priority: .high) { [weak self] in
+      guard let self else { return }
+      let contents = await self.contents
+      let drawer = await self.drawer
+      
+      // This can be slow
+      var projected: [GeoDrawer.ProjectedContent] = []
+      for content in contents {
+        if Task.isCancelled {
+          return
+        }
+        if let item = drawer.project(content) {
+          projected.append(item)
+        }
+      }
+      
+      let finished = projected
+      await MainActor.run {
+        self.projectProgress = .finished(finished)
+        self.setNeedsDisplay(self.bounds)
+      }
+    }, previously: previous)
   }
 }
 
