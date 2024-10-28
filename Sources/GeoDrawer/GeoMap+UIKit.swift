@@ -17,44 +17,44 @@ import GeoJSONKit
 public class GeoMapView: UIView {
   public var contents: [GeoDrawer.Content] = [] {
     didSet {
-      _projected = nil
-      setNeedsDisplay(bounds)
+      projectProgress = .idle
+      setNeedsDisplay()
     }
   }
   
   public var projection: Projection = Projections.Equirectangular() {
     didSet {
       _drawer = nil
-      _projected = nil
-      setNeedsDisplay(bounds)
+      projectProgress = .idle
+      setNeedsDisplay()
     }
   }
   
   public var zoomTo: GeoJSON.BoundingBox? = nil {
     didSet {
       _drawer = nil
-      _projected = nil
-      setNeedsDisplay(bounds)
+            
+      setNeedsDisplay()
     }
   }
 
   public var insets: GeoProjector.EdgeInsets = .zero {
     didSet {
       _drawer = nil
-      _projected = nil
-      setNeedsDisplay(bounds)
+      projectProgress = .idle
+      setNeedsDisplay()
     }
   }
 
   public var mapBackground: UIColor = .systemTeal {
     didSet {
-      setNeedsDisplay(bounds)
+      setNeedsDisplay()
     }
   }
   
   public var mapOutline: UIColor = .black {
     didSet {
-      setNeedsDisplay(bounds)
+      setNeedsDisplay()
     }
   }
 
@@ -62,20 +62,8 @@ public class GeoMapView: UIView {
   public override var frame: CGRect {
     didSet {
       _drawer = nil
-      _projected = nil
-      setNeedsDisplay(bounds)
-    }
-  }
-  
-  
-  private var _projected: [GeoDrawer.ProjectedContent]!
-  private var projected: [GeoDrawer.ProjectedContent] {
-    if let _projected {
-      return _projected
-    } else {
-      let projected = contents.compactMap(drawer.project(_:))
-      _projected = projected
-      return projected
+      projectProgress = .idle
+      setNeedsDisplay()
     }
   }
   
@@ -120,6 +108,46 @@ public class GeoMapView: UIView {
     )
     
     context.flush()
+  }
+  
+  // MARK: - Performance
+  
+  enum ProjectionProgress {
+    case finished([GeoDrawer.ProjectedContent])
+    case busy(Task<Void, Never>)
+    case idle
+  }
+  
+  private var projectProgress = ProjectionProgress.idle
+  private var projected: [GeoDrawer.ProjectedContent] {
+    switch projectProgress {
+    case .finished(let array):
+      return array
+    case .busy:
+      return []
+    case .idle:
+      updateProjectedContents()
+      return []
+    }
+  }
+  
+  private func updateProjectedContents() {
+    projectProgress = .busy(Task.detached(priority: .high) { [weak self] in
+      guard let self else { return }
+      let contents = await self.contents
+      let drawer = await self.drawer
+      
+      // This can be slow
+      let projected: [GeoDrawer.ProjectedContent] = contents.compactMap(drawer.project)
+      if Task.isCancelled {
+        return
+      }
+      
+      await MainActor.run {
+        self.projectProgress = .finished(projected)
+        self.setNeedsDisplay()
+      }
+    })
   }
 }
 
