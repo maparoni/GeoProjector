@@ -21,6 +21,7 @@ let package = Package(
     .package(url: "https://github.com/maparoni/geojsonkit.git", from: "0.5.0"),
     .package(url: "https://github.com/maparoni/geojsonkit-turf", from: "0.1.0"),
 //    .package(name: "geojsonkit-turf", path: "../GeoJSONKit-Turf"),
+    .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
   ],
   targets: [
     .target(
@@ -38,6 +39,7 @@ let package = Package(
       name: "GeoDrawer",
       dependencies: [
         "GeoProjector",
+        .product(name: "Algorithms", package: "swift-algorithms"),
       ]),
   ]
 )

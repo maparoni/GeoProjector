@@ -17,65 +17,57 @@ import GeoJSONKit
 public class GeoMapView: UIView {
   public var contents: [GeoDrawer.Content] = [] {
     didSet {
-      _projected = nil
-      setNeedsDisplay(bounds)
+      if contents == oldValue { return }
+      invalidateProjectedContents()
+      setNeedsDisplay()
     }
   }
   
   public var projection: Projection = Projections.Equirectangular() {
     didSet {
       _drawer = nil
-      _projected = nil
-      setNeedsDisplay(bounds)
+      invalidateProjectedContents()
+      setNeedsDisplay()
     }
   }
   
   public var zoomTo: GeoJSON.BoundingBox? = nil {
     didSet {
+      if zoomTo == oldValue { return }
       _drawer = nil
-      _projected = nil
-      setNeedsDisplay(bounds)
+      invalidateProjectedContents()
+      setNeedsDisplay()
     }
   }
 
   public var insets: GeoProjector.EdgeInsets = .zero {
     didSet {
+      if insets == oldValue { return }
       _drawer = nil
-      _projected = nil
-      setNeedsDisplay(bounds)
+      invalidateProjectedContents()
+      setNeedsDisplay()
     }
   }
 
   public var mapBackground: UIColor = .systemTeal {
     didSet {
-      setNeedsDisplay(bounds)
+      setNeedsDisplay()
     }
   }
   
   public var mapOutline: UIColor = .black {
     didSet {
-      setNeedsDisplay(bounds)
+      setNeedsDisplay()
     }
   }
 
   
   public override var frame: CGRect {
     didSet {
+      if frame == oldValue { return }
       _drawer = nil
-      _projected = nil
-      setNeedsDisplay(bounds)
-    }
-  }
-  
-  
-  private var _projected: [GeoDrawer.ProjectedContent]!
-  private var projected: [GeoDrawer.ProjectedContent] {
-    if let _projected {
-      return _projected
-    } else {
-      let projected = contents.compactMap(drawer.project(_:))
-      _projected = projected
-      return projected
+      invalidateProjectedContents()
+      setNeedsDisplay()
     }
   }
   
@@ -96,7 +88,6 @@ public class GeoMapView: UIView {
   }
   
   public override func draw(_ rect: CGRect) {
-    super.draw(rect)
     
     // Get the current graphics context and cast it to a CGContext
     let context = UIGraphicsGetCurrentContext()!
@@ -110,6 +101,19 @@ public class GeoMapView: UIView {
       background = .white
     }
     
+    // Don't draw if we're busy as this will flicker weirdly
+    let projected: [GeoDrawer.ProjectedContent]
+    switch projectProgress {
+    case .busy(_, .some(let previous)):
+      projected = previous
+    case .busy(_, .none), .idle:
+      return // Don't update drawing; will get called again instead when finished
+    case .finished(let finished):
+      projected = finished
+    }
+    
+    super.draw(rect)
+    
     // Use Core Graphics functions to draw the content of your view
     drawer.draw(
       projected,
@@ -120,6 +124,42 @@ public class GeoMapView: UIView {
     )
     
     context.flush()
+  }
+  
+  // MARK: - Performance
+  
+  enum ProjectionProgress {
+    case finished([GeoDrawer.ProjectedContent])
+    case busy(Task<Void, Never>, previously: [GeoDrawer.ProjectedContent]?)
+    case idle
+  }
+  
+  private var projectProgress = ProjectionProgress.idle
+  
+  private func invalidateProjectedContents() {
+    let previous: [GeoDrawer.ProjectedContent]?
+    switch projectProgress {
+    case .finished(let projected):
+      previous = projected
+    case .busy(let task, let previously):
+      task.cancel()
+      previous = previously
+    case .idle:
+      previous = nil
+    }
+
+    projectProgress = .busy(Task.detached(priority: .high) { [weak self] in
+      guard let self else { return }
+      do {
+        let projected = try await drawer.projectInParallel(contents)
+        await MainActor.run {
+          self.projectProgress = .finished(projected)
+          self.setNeedsDisplay(self.bounds)
+        }
+      } catch {
+        assert(error is CancellationError)
+      }
+    }, previously: previous)
   }
 }
 

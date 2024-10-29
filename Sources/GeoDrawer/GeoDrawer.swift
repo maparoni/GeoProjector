@@ -12,6 +12,7 @@ import CoreGraphics
 #endif
 
 import GeoJSONKit
+import Algorithms
 
 @_exported import GeoProjector
 
@@ -225,6 +226,40 @@ extension GeoDrawer {
     case let .circle(center, radius, fill, stroke, strokeWidth):
       guard let point = converter(center)?.0 else { return nil }
       return .circle(point, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
+    }
+  }
+  
+  struct OffsettedElement<Element: Equatable>: Comparable, Equatable {
+    let offset: Int
+    let element: Element
+    
+    static func == (lhs: OffsettedElement, rhs: OffsettedElement) -> Bool {
+      lhs.offset == rhs.offset && lhs.element == rhs.element
+    }
+    
+    static func < (lhs: OffsettedElement, rhs: OffsettedElement) -> Bool {
+      lhs.offset < rhs.offset
+    }
+  }
+  
+  func projectInParallel(_ contents: [Content]) async throws -> [ProjectedContent] {
+    try await withThrowingTaskGroup(of: [OffsettedElement<ProjectedContent>].self) { group in
+      let chunks = Array(contents.enumerated()).chunks(ofCount: 25)
+      for chunk in chunks {
+        let added = group.addTaskUnlessCancelled {
+          await Task {
+            return chunk.compactMap { input in
+              project(input.element).flatMap { OffsettedElement(offset: input.offset, element: $0) }
+            }
+          }.value
+        }
+        if !added {
+          throw CancellationError()
+        }
+      }
+      
+      let unsorted = try await group.reduce(into: []) { $0.append(contentsOf: $1) }
+      return unsorted.sorted(by: <).map(\.element)
     }
   }
 }
