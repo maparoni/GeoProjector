@@ -227,6 +227,18 @@ extension GeoDrawer {
       return .circle(point, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
     }
   }
+  
+  func projectInParallel(_ contents: [Content]) async throws -> [ProjectedContent] {
+    // This can be slow
+    var projected: [GeoDrawer.ProjectedContent] = []
+    for content in contents {
+      try Task.checkCancellation()
+      if let item = project(content) {
+        projected.append(item)
+      }
+    }
+    return projected
+  }
 }
 
 // MARK: - Line helper

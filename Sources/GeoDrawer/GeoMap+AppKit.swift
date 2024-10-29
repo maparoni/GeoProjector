@@ -139,24 +139,14 @@ public class GeoMapView: NSView {
 
     projectProgress = .busy(Task.detached(priority: .high) { [weak self] in
       guard let self else { return }
-      let contents = await self.contents
-      let drawer = await self.drawer
-      
-      // This can be slow
-      var projected: [GeoDrawer.ProjectedContent] = []
-      for content in contents {
-        if Task.isCancelled {
-          return
+      do {
+        let projected = try await drawer.projectInParallel(contents)
+        await MainActor.run {
+          self.projectProgress = .finished(projected)
+          self.setNeedsDisplay(self.bounds)
         }
-        if let item = drawer.project(content) {
-          projected.append(item)
-        }
-      }
-      
-      let finished = projected
-      await MainActor.run {
-        self.projectProgress = .finished(finished)
-        self.setNeedsDisplay(self.bounds)
+      } catch {
+        assert(error is CancellationError)
       }
     }, previously: previous)
   }

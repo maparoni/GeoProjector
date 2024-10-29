@@ -33,14 +33,16 @@ public class GeoMapView: UIView {
   
   public var zoomTo: GeoJSON.BoundingBox? = nil {
     didSet {
+      if zoomTo == oldValue { return }
       _drawer = nil
-            
+      invalidateProjectedContents()
       setNeedsDisplay()
     }
   }
 
   public var insets: GeoProjector.EdgeInsets = .zero {
     didSet {
+      if insets == oldValue { return }
       _drawer = nil
       invalidateProjectedContents()
       setNeedsDisplay()
@@ -62,6 +64,7 @@ public class GeoMapView: UIView {
   
   public override var frame: CGRect {
     didSet {
+      if frame == oldValue { return }
       _drawer = nil
       invalidateProjectedContents()
       setNeedsDisplay()
@@ -147,24 +150,14 @@ public class GeoMapView: UIView {
 
     projectProgress = .busy(Task.detached(priority: .high) { [weak self] in
       guard let self else { return }
-      let contents = await self.contents
-      let drawer = await self.drawer
-      
-      // This can be slow
-      var projected: [GeoDrawer.ProjectedContent] = []
-      for content in contents {
-        if Task.isCancelled {
-          return
+      do {
+        let projected = try await drawer.projectInParallel(contents)
+        await MainActor.run {
+          self.projectProgress = .finished(projected)
+          self.setNeedsDisplay(self.bounds)
         }
-        if let item = drawer.project(content) {
-          projected.append(item)
-        }
-      }
-      
-      let finished = projected
-      await MainActor.run {
-        self.projectProgress = .finished(finished)
-        self.setNeedsDisplay(self.bounds)
+      } catch {
+        assert(error is CancellationError)
       }
     }, previously: previous)
   }
