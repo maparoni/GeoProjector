@@ -249,7 +249,8 @@ extension GeoDrawer {
         let added = group.addTaskUnlessCancelled {
           await Task {
             return chunk.compactMap { input in
-              project(input.element).flatMap { OffsettedElement(offset: input.offset, element: $0) }
+              guard !Task.isCancelled, let projected = project(input.element) else { return nil }
+              return OffsettedElement(offset: input.offset, element: projected)
             }
           }.value
         }
