@@ -1,5 +1,5 @@
 //
-//  GeoDrawer+UIKit.swift
+//  GeoDrawer+Image.swift
 //  
 //
 //  Created by Adrian Schönig on 2/12/2022.
@@ -9,8 +9,6 @@
 
 #if canImport(UIKit)
 import UIKit
-
-// MARK: - Image drawing
 
 extension GeoDrawer {
   
@@ -40,6 +38,39 @@ extension GeoDrawer {
       )
     }
     return image
+  }
+  
+}
+
+#elseif canImport(AppKit)
+import AppKit
+
+extension GeoDrawer {
+
+  /// Generates an image drawing the provided contents according to the configured
+  /// projection, zoom and edge insets. When providing the different colours, the background of
+  /// the map projection itself will be drawn, too.
+  ///
+  /// - Parameters:
+  ///   - contents: GeoJSON contents to draw
+  ///   - mapBackground: Background of the map itself
+  ///   - mapOutline: Stroke colour around the map
+  ///   - mapBackdrop: Background to draw outside the map / projection bounds
+  /// - Returns: New image
+  public func drawImage(_ contents: [Content], mapBackground: NSColor? = nil, mapOutline: NSColor? = nil, mapBackdrop: NSColor? = nil) -> NSImage {
+    
+    let cgSize = CGSize(width: size.width, height: size.height)
+    return NSImage(size: cgSize, flipped: false) { _ in
+      guard let context = NSGraphicsContext.current?.cgContext else { return false }
+      self.draw(
+        contents,
+        mapBackground: mapBackground?.cgColor,
+        mapOutline: mapOutline?.cgColor,
+        mapBackdrop: mapBackdrop?.cgColor,
+        in: context
+      )
+      return true
+    }
   }
   
 }
