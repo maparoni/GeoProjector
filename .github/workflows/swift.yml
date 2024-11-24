@@ -60,4 +60,4 @@ jobs:
       - name: Build
         run: |
           cd Examples
-          xcodebuild build -scheme 'Cassini' -destination 'name=iPhone 14' -sdk iphoneos
+          xcodebuild build -scheme 'Cassini' -destination 'platform=iOS Simulator,name=iPhone 14' -sdk iphonesimulator
