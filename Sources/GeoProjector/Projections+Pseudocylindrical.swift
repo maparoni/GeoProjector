@@ -92,4 +92,75 @@ extension Projections {
 
   }
   
+  /// Compromise projection that's optimised to look nice as a small map
+  ///
+  /// See https://www.shadedrelief.com/NE_proj/index.html
+  public struct NaturalEarth: Projection {
+    private static let A0 = 0.8707
+    private static let A1 = -0.131979
+    private static let A2 = -0.013791
+    private static let A3 = 0.003971
+    private static let A4 = -0.001529
+    private static let B0 = 1.007226
+    private static let B1 = 0.015085
+    private static let B2 = -0.044475
+    private static let B3 = 0.028874
+    private static let B4 = -0.005916
+    private static let MAX_Y = 0.8707 * 0.52 * .pi
+    
+    public let reference: Point
+    
+    public let projectionSize: Size
+    
+    public let mapBounds: MapBounds
+    
+    public init(reference: Point) {
+      self.reference = reference
+      
+      // Calculate projection size based on equations
+      self.projectionSize = .init(
+        width: 2 * .pi * Self.A0,
+        height: 2 * Self.MAX_Y
+      )
+      
+      let inputCorners: [Point] = [
+        .init(x: -1 * .pi, y: .pi / 2),
+        .init(x: .pi, y: .pi / 2),
+        .init(x: .pi, y: -1 * .pi / 2),
+        .init(x: -1 * .pi, y: -1 * .pi / 2),
+        .init(x: -1 * .pi, y: .pi / 2),
+      ]
+      
+      let boundPoints = zip(inputCorners.dropLast(), inputCorners.dropFirst())
+        .reduce(into: [Point]()) { acc, next in
+          acc.append(Self.project(next.0))
+          acc.append(contentsOf: Interpolator.interpolate(from: next.0, to: next.1, maxDiff: 0.0025, projector: Self.project(_:)).map(\.1))
+          acc.append(Self.project(next.1))
+        }
+      self.mapBounds = .bezier(boundPoints)
+    }
+    
+    public func willWrap(_ point: Point) -> Bool {
+      Projections.willWrap(point, reference: reference)
+    }
+    
+    public func project(_ point: Point) -> Point? {
+      let adjusted = Projections.adjust(point, reference: reference)
+      return Self.project(adjusted)
+    }
+    
+    private static func project(_ point: Point) -> Point {
+      let phi = point.y
+      let lam = point.x
+      
+      let phi2 = phi * phi
+      let phi4 = phi2 * phi2
+      
+      let x = lam * (A0 + phi2 * (A1 + phi2 * (A2 + phi4 * phi2 * (A3 + phi2 * A4))))
+      let y = phi * (B0 + phi2 * (B1 + phi4 * (B2 + B3 * phi2 + B4 * phi4)))
+      
+      return .init(x: x, y: y)
+    }
+  }
+  
 }
