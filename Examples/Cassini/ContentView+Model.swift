@@ -22,6 +22,7 @@ extension ContentView {
     case mercator
     case gallPeters
     case equalEarth
+    case naturalEarth
     case orthographic
     case azimuthal
     
@@ -85,6 +86,8 @@ extension ContentView {
         projection = Projections.GallPeters(reference: reference)
       case .equalEarth:
         projection = Projections.EqualEarth(reference: reference)
+      case .naturalEarth:
+        projection = Projections.NaturalEarth(reference: reference)
       case .orthographic:
         projection = Projections.Orthographic(reference: reference)
       case .azimuthal:
