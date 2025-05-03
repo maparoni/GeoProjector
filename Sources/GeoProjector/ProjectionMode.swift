@@ -13,6 +13,7 @@ public enum ProjectionMode: String, Codable, Sendable {
   case mercator
   case equirectangular
   case equalEarth
+  case naturalEarth
   case gallPeters
   case azimuthal
   case orthographic
@@ -22,7 +23,9 @@ public enum ProjectionMode: String, Codable, Sendable {
     switch self {
     case .automatic where max(boundingBox.longitudeSpan, boundingBox.latitudeSpan) < 180, .orthographic:
       return Projections.Orthographic(reference: boundingBox.center)
-    case .equalEarth, .automatic:
+    case .naturalEarth, .automatic:
+      return Projections.NaturalEarth(reference: boundingBox.center)
+    case .equalEarth:
       return Projections.EqualEarth(reference: boundingBox.center)
 
     case .mercator:
@@ -39,7 +42,9 @@ public enum ProjectionMode: String, Codable, Sendable {
   
   public func resolve(for center: GeoJSON.Position = .init(latitude: 0, longitude: 0)) -> Projection {
     switch self {
-    case .automatic, .equalEarth:
+    case .automatic, .naturalEarth:
+      return Projections.NaturalEarth(reference: center)
+    case .equalEarth:
       return Projections.EqualEarth(reference: center)
     case .orthographic:
       return Projections.Orthographic(reference: center)
