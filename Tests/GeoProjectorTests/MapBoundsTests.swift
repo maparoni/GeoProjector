@@ -5,14 +5,19 @@
 //  Created by Adrian Schönig on 9/12/2022.
 //
 
-import XCTest
+#if canImport(Testing)
+import Testing
 
 @testable import GeoProjector
 
-final class MapBoundsTests: XCTestCase {
-  func testEqualEarthBounds() {
-    guard case let .bezier(bounds) = Projections.EqualEarth().mapBounds else { return XCTFail() }
-    XCTAssertEqual(bounds.count, 82)
+struct MapBoundsTests {
+  @Test func equalEarthBounds() {
+    guard case let .bezier(bounds) = Projections.EqualEarth().mapBounds else { 
+      Issue.record("Expected bezier map bounds")
+      return
+    }
+    #expect(bounds.count == 82)
   }
-  
 }
+
+#endif

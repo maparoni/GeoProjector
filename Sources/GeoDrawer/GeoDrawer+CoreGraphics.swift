@@ -18,21 +18,29 @@ import GeoProjector
 
 extension GeoDrawer {
   
+  private var coordinateSystem: CoordinateSystem {
+    #if os(macOS)
+    .bottomLeft
+    #else
+    .topLeft
+    #endif
+  }
+  
   /// Draws the line into the current context
   public func draw(_ line: GeoJSON.LineString, strokeColor: CGColor, strokeWidth: Double = 2, in context: CGContext) {
-    for line in project(line) {
+    for line in project(line, coordinateSystem: coordinateSystem) {
       draw(line, strokeColor: strokeColor, strokeWidth: strokeWidth, in: context)
     }
   }
   
   public func draw(_ polygon: GeoJSON.Polygon, fillColor: CGColor? = nil, strokeColor: CGColor? = nil, strokeWidth: Double = 2, frame: CGRect, in context: CGContext) {
-    for polygon in project(polygon) {
+    for polygon in project(polygon, coordinateSystem: coordinateSystem) {
       draw(polygon, fillColor: fillColor, strokeColor: strokeColor, strokeWidth: strokeWidth, frame: frame, in: context)
     }
   }
   
   func drawCircle(_ position: GeoJSON.Position, radius: CGFloat, fillColor: CGColor, strokeColor: CGColor? = nil, strokeWidth: Double = 2, in context: CGContext) {
-    guard let center = converter(position)?.0 else { return }
+    guard let center = converter(position, coordinateSystem)?.0 else { return }
     drawCircle(center, radius: radius, fillColor: fillColor, strokeColor: strokeColor, strokeWidth: strokeWidth, in: context)
   }
   
@@ -141,8 +149,8 @@ extension GeoDrawer {
     
     switch bounds {
     case .ellipse:
-      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets)
-      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets)
+      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
+      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
 
       path = CGPath(ellipseIn: .init(
         origin: min.cgPoint,
@@ -150,8 +158,8 @@ extension GeoDrawer {
       ), transform: nil)
       
     case .rectangle:
-      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets)
-      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets)
+      let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
+      let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
       
       path = CGPath(rect: .init(
         origin: min.cgPoint,
@@ -159,7 +167,7 @@ extension GeoDrawer {
       ), transform: nil)
 
     case .bezier(let array):
-      let points = array.map { projection.translate($0, to: size, zoomTo: zoomTo, insets: insets) }
+      let points = array.map { projection.translate($0, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem) }
       let mutable = CGMutablePath()
       mutable.move(to: points[0].cgPoint)
       for point in points[1...] {
@@ -189,7 +197,7 @@ extension GeoDrawer {
 extension GeoDrawer {
   
   public func draw(_ contents: [Content], mapBackground: CGColor? = nil, mapOutline: CGColor? = nil, mapBackdrop: CGColor? = nil, in context: CGContext) {
-    let projected = contents.compactMap(project)
+    let projected = contents.compactMap { project($0, coordinateSystem: coordinateSystem) }
     draw(projected, mapBackground: mapBackground, mapOutline: mapOutline, mapBackdrop: mapBackdrop, in: context)
   }
   
