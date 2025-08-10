@@ -41,5 +41,11 @@ let package = Package(
         "GeoProjector",
         .product(name: "Algorithms", package: "swift-algorithms"),
       ]),
+    .testTarget(
+      name: "GeoDrawerTests",
+      dependencies: [
+        "GeoDrawer",
+        "GeoProjector",
+      ]),
   ]
 )
