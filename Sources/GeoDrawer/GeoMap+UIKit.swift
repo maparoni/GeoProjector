@@ -151,7 +151,7 @@ public class GeoMapView: UIView {
     projectProgress = .busy(Task.detached(priority: .high) { [weak self] in
       guard let self else { return }
       do {
-        let projected = try await drawer.projectInParallel(contents)
+        let projected = try await drawer.projectInParallel(contents, coordinateSystem: .topLeft)
         await MainActor.run {
           self.projectProgress = .finished(projected)
           self.setNeedsDisplay(self.bounds)

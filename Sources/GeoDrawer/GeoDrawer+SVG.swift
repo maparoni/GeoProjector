@@ -27,7 +27,7 @@ extension GeoDrawer {
     _ contents: [Content], mapBackground: Color? = nil, mapOutline: Color? = nil,
     mapBackdrop: Color? = nil
   ) -> String {
-    let projected = contents.compactMap(project)
+    let projected = contents.compactMap { project($0, coordinateSystem: .topLeft) }
     return drawSVG(
       projected, mapBackground: mapBackground, mapOutline: mapOutline, mapBackdrop: mapBackdrop)
   }
@@ -235,10 +235,10 @@ private struct SVGBuilder {
     case .ellipse:
       let min = projection.translate(
         .init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2),
-        to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets)
+        to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets, coordinateSystem: .topLeft)
       let max = projection.translate(
         .init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2),
-        to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets)
+        to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets, coordinateSystem: .topLeft)
 
       let centerX = (min.x + max.x) / 2
       let centerY = (min.y + max.y) / 2
@@ -268,10 +268,10 @@ private struct SVGBuilder {
     case .rectangle:
       let min = projection.translate(
         .init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2),
-        to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets)
+        to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets, coordinateSystem: .topLeft)
       let max = projection.translate(
         .init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2),
-        to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets)
+        to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets, coordinateSystem: .topLeft)
 
       addRectangle(
         x: min.x, y: min.y,
@@ -281,7 +281,7 @@ private struct SVGBuilder {
 
     case .bezier(let array):
       let points = array.map {
-        projection.translate($0, to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets)
+        projection.translate($0, to: drawer.size, zoomTo: drawer.zoomTo, insets: drawer.insets, coordinateSystem: .topLeft)
       }
       guard !points.isEmpty else { return }
 

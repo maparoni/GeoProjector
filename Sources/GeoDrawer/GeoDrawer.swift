@@ -1,6 +1,6 @@
 //
 //  GeoDrawer.swift
-//  
+//
 //
 //  Created by Adrian Schönig on 2/12/2022.
 //
@@ -56,12 +56,12 @@ import Algorithms
 /// drawer.draw(myContent, in: myContext)
 /// ```
 public struct GeoDrawer {
-  
+
   public init(size: Size, projection: Projection, zoomTo: GeoJSON.BoundingBox? = nil, zoomOutFactor: Double = 1, insets: EdgeInsets = .zero) {
     self.projection = projection
     self.size = size
     self.insets = insets
-    
+
     let zoomToRect: Rect? = zoomTo.flatMap { box in
       let positions = [
         GeoJSON.Position(latitude: box.northEasterlyLatitude, longitude: box.southWesterlyLongitude),
@@ -69,14 +69,14 @@ public struct GeoDrawer {
         GeoJSON.Position(latitude: box.southWesterlyLatitude, longitude: box.northEasterlyLongitude),
         GeoJSON.Position(latitude: box.southWesterlyLatitude, longitude: box.southWesterlyLongitude),
       ]
-      
+
       let lines = [
         GeoJSON.LineString(positions: [positions[0], positions[1]]),
         GeoJSON.LineString(positions: [positions[1], positions[2]]),
         GeoJSON.LineString(positions: [positions[2], positions[3]]),
         GeoJSON.LineString(positions: [positions[3], positions[0]]),
       ]
-      
+
       let bounds: Rect? = lines.reduce(nil) { acc, next in
         let points = Self.projectLine(next.positions, projection: projection).compactMap(\.1)
         if var acc {
@@ -95,10 +95,10 @@ public struct GeoDrawer {
         }
       }
       guard let bounds else { return nil }
-      
+
       // Zoom out a whole bit to give some global context
       let scaled = bounds.scaled(x: zoomOutFactor, y: zoomOutFactor)
-      
+
       // But don't zoom out further than 75% of the projection size
       // (75% is a bit arbitrary, but it looks weird if you zoom in
       // just a little bit; better to just show not zoomed-in then.)
@@ -108,44 +108,44 @@ public struct GeoDrawer {
         return nil
       }
     }
-    
+
     self.zoomTo = zoomToRect
-    
-    self.converter = { position -> (Point, Bool)? in
+
+    self.converter = { position, coordinateSystem -> (Point, Bool)? in
       let point = Point(x: position.longitude.toRadians(), y: position.latitude.toRadians())
-      return projection.point(for: point, size: size, zoomTo: zoomToRect, insets: insets)
+      return projection.point(for: point, size: size, zoomTo: zoomToRect, insets: insets, coordinateSystem: coordinateSystem)
     }
   }
-  
-  public init(size: Size, converter: @escaping (GeoJSON.Position) -> Point) {
+
+  public init(size: Size, converter: @escaping (GeoJSON.Position, CoordinateSystem) -> Point) {
     self.projection = nil
     self.size = size
     self.zoomTo = nil
     self.insets = .zero
-    self.converter = { (converter($0), false) }
+    self.converter = { (converter($0, $1), false) }
   }
-  
+
   public let projection: Projection?
-  
+
   public let size: Size
-  
+
   let zoomTo: Rect?
 
   public let insets: EdgeInsets
 
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }
-  
-  let converter: (GeoJSON.Position) -> (Point, Bool)?
-  
-  public func point(for position: GeoJSON.Position) -> Point? {
-    converter(position)?.0
+
+  let converter: (GeoJSON.Position, CoordinateSystem) -> (Point, Bool)?
+
+  public func point(for position: GeoJSON.Position, coordinateSystem: CoordinateSystem) -> Point? {
+    converter(position, coordinateSystem)?.0
   }
 }
 
 // MARK: - Content
 
 extension GeoDrawer {
-  
+
 #if canImport(CoreGraphics)
   public typealias Color = CGColor
 #else
@@ -156,12 +156,12 @@ extension GeoDrawer {
       self.blue = blue
       self.alpha = alpha
     }
-    
+
     public var red: Double
     public var green: Double
     public var blue: Double
     public var alpha: Double
-    
+
     public func copy(alpha: Double) -> Self? {
       guard alpha != self.alpha else { return nil }
       var updated = self
@@ -176,26 +176,26 @@ extension GeoDrawer {
     case polygon(GeoJSON.Polygon, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
     case circle(GeoJSON.Position, radius: Double, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
   }
-  
+
 }
 
 // MARK: - Projected content
 
 extension GeoDrawer {
-  
+
   struct ProjectedLineString: Hashable {
     let points: [Point]
   }
-  
+
   struct ProjectedPolygon: Hashable {
     let exterior: [Point]
     let interiors: [[Point]]
-    
+
     // In some projections such as Azimuthal, we might need to colour a cut-out
     // rather than the projected polygon.
     let invert: Bool
   }
-  
+
   enum ProjectedContent: Hashable {
     case line([ProjectedLineString], stroke: Color, strokeWidth: Double)
     case polygon([ProjectedPolygon], fill: Color, stroke: Color?, strokeWidth: Double)
@@ -204,52 +204,52 @@ extension GeoDrawer {
 }
 
 extension GeoDrawer {
-  func project(_ line: GeoJSON.LineString) -> [ProjectedLineString] {
-    let lines = convertLine(line.positions)
+  func project(_ line: GeoJSON.LineString, coordinateSystem: CoordinateSystem) -> [ProjectedLineString] {
+    let lines = convertLine(line.positions, coordinateSystem: coordinateSystem)
     return lines.map(ProjectedLineString.init(points:))
   }
-  
-  func project(_ polygon: GeoJSON.Polygon) -> [ProjectedPolygon] {
+
+  func project(_ polygon: GeoJSON.Polygon, coordinateSystem: CoordinateSystem) -> [ProjectedPolygon] {
     let invert: Bool = invertCheck?(polygon) ?? false
-    let interiors = polygon.interiors.flatMap { convertLine($0.positions) }
-    return convertLine(polygon.exterior.positions).map { points in
+    let interiors = polygon.interiors.flatMap { convertLine($0.positions, coordinateSystem: coordinateSystem) }
+    return convertLine(polygon.exterior.positions, coordinateSystem: coordinateSystem).map { points in
       return .init(exterior: points, interiors: interiors, invert: invert)
     }
   }
-  
-  func project(_ content: Content) -> ProjectedContent? {
+
+  func project(_ content: Content, coordinateSystem: CoordinateSystem) -> ProjectedContent? {
     switch content {
     case let .line(line, stroke, strokeWidth):
-      return .line(project(line), stroke: stroke, strokeWidth: strokeWidth)
+      return .line(project(line, coordinateSystem: coordinateSystem), stroke: stroke, strokeWidth: strokeWidth)
     case let .polygon(polygon, fill, stroke, strokeWidth):
-      return .polygon(project(polygon), fill: fill, stroke: stroke, strokeWidth: strokeWidth)
+      return .polygon(project(polygon, coordinateSystem: coordinateSystem), fill: fill, stroke: stroke, strokeWidth: strokeWidth)
     case let .circle(center, radius, fill, stroke, strokeWidth):
-      guard let point = converter(center)?.0 else { return nil }
+      guard let point = converter(center, coordinateSystem)?.0 else { return nil }
       return .circle(point, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
     }
   }
-  
+
   struct OffsettedElement<Element: Equatable>: Comparable, Equatable {
     let offset: Int
     let element: Element
-    
+
     static func == (lhs: OffsettedElement, rhs: OffsettedElement) -> Bool {
       lhs.offset == rhs.offset && lhs.element == rhs.element
     }
-    
+
     static func < (lhs: OffsettedElement, rhs: OffsettedElement) -> Bool {
       lhs.offset < rhs.offset
     }
   }
-  
-  func projectInParallel(_ contents: [Content]) async throws -> [ProjectedContent] {
+
+  func projectInParallel(_ contents: [Content], coordinateSystem: CoordinateSystem) async throws -> [ProjectedContent] {
     try await withThrowingTaskGroup(of: [OffsettedElement<ProjectedContent>].self) { group in
       let chunks = Array(contents.enumerated()).chunks(ofCount: 25)
       for chunk in chunks {
         let added = group.addTaskUnlessCancelled {
           await Task {
             return chunk.compactMap { input in
-              guard !Task.isCancelled, let projected = project(input.element) else { return nil }
+              guard !Task.isCancelled, let projected = project(input.element, coordinateSystem: coordinateSystem) else { return nil }
               return OffsettedElement(offset: input.offset, element: projected)
             }
           }.value
@@ -258,7 +258,7 @@ extension GeoDrawer {
           throw CancellationError()
         }
       }
-      
+
       let unsorted = try await group.reduce(into: []) { $0.append(contentsOf: $1) }
       return unsorted.sorted(by: <).map(\.element)
     }
@@ -268,23 +268,23 @@ extension GeoDrawer {
 // MARK: - Line helper
 
 extension GeoDrawer {
-  
+
   enum Grouping: Equatable {
     case wrapped
     case notWrapped
     case notProjected
   }
-  
+
   /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
-  func convertLine(_ positions: [GeoJSON.Position]) -> [[Point]] {
-    Self.convertLine(positions, projection: projection, size: size, zoomTo: zoomTo, insets: insets, converter: converter)
+  func convertLine(_ positions: [GeoJSON.Position], coordinateSystem: CoordinateSystem) -> [[Point]] {
+    Self.convertLine(positions, projection: projection, size: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem, converter: converter)
   }
-  
+
   private static func projectLine(_ positions: [GeoJSON.Position], projection: Projection) -> [(Point, Point?)] {
-    
+
     // 1. Turn degrees into radians
     let unprojected = positions.map { Point(x: $0.longitude.toRadians(), y: $0.latitude.toRadians()) }
-    
+
     // 2. Project pairs and interpolate between them, which is necessary if
     //    we can't just draw a line between the two projected points as the
     //    projection itself should be curved or it might not cover both
@@ -295,27 +295,27 @@ extension GeoDrawer {
         acc.append(contentsOf: Interpolator.interpolate(from: next.0, to: next.1, maxDiff: 0.0025, projector: projection.project(_:)))
         acc.append((next.1, projection.project(next.1)))
       }
-    
+
     return projected
   }
-  
+
   /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
-  private static func convertLine(_ positions: [GeoJSON.Position], projection: Projection?, size: Size, zoomTo: Rect?, insets: EdgeInsets, converter: (GeoJSON.Position) -> (Point, Bool)?) -> [[Point]] {
-    
+  private static func convertLine(_ positions: [GeoJSON.Position], projection: Projection?, size: Size, zoomTo: Rect?, insets: EdgeInsets, coordinateSystem: CoordinateSystem, converter: (GeoJSON.Position, CoordinateSystem) -> (Point, Bool)?) -> [[Point]] {
+
     guard let projection else {
       return [positions.compactMap {
-        converter($0)?.0
+        converter($0, coordinateSystem)?.0
       }]
     }
-    
+
     let projected = Self.projectLine(positions, projection: projection)
-    
+
     // 3. Now translate the projected points into point coordinates to draw
     let converted = projected
       .map { (unproj, projected) -> (Point, Point?, Grouping) in
         assert(unproj.isGood)
         if let projected {
-          let proj = projection.translate(projected, to: size, zoomTo: zoomTo, insets: insets)
+          let proj = projection.translate(projected, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
           assert(proj.isGood)
           return (unproj, proj, projection.willWrap(unproj) ? .wrapped : .notWrapped)
         } else {
@@ -333,7 +333,7 @@ extension GeoDrawer {
         if let proj {
           wip.0.append((unproj, proj))
         }
-        
+
       } else {
         // We got to a new group
         if !wip.0.isEmpty {
@@ -346,7 +346,7 @@ extension GeoDrawer {
             break
           }
         }
-          
+
         var new: [(Point, Point)]
         switch group {
         case .notWrapped:
@@ -362,7 +362,7 @@ extension GeoDrawer {
           // in the group, but interpolate again.
           let interpolated = Interpolator.interpolate(from: last, to: unproj, maxDiff: 0.0025, projector: projection.project(_:))
           let translated = interpolated.map {
-            let translated = projection.translate($0.1, to: size, zoomTo: zoomTo, insets: insets)
+            let translated = projection.translate($0.1, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
             assert(translated.isGood)
             return ($0.0, translated)
           }

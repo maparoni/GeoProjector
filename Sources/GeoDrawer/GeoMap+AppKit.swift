@@ -1,6 +1,6 @@
 //
 //  GeoMap+AppKit.swift
-//  
+//
 //
 //  Created by Adrian Schönig on 10/12/2022.
 //
@@ -21,7 +21,7 @@ public class GeoMapView: NSView {
       setNeedsDisplay(bounds)
     }
   }
-  
+
   public var projection: Projection = Projections.Equirectangular() {
     didSet {
       _drawer = nil
@@ -29,7 +29,7 @@ public class GeoMapView: NSView {
       setNeedsDisplay(bounds)
     }
   }
-  
+
   public var zoomTo: GeoJSON.BoundingBox? = nil {
     didSet {
       _drawer = nil
@@ -51,7 +51,7 @@ public class GeoMapView: NSView {
       setNeedsDisplay(bounds)
     }
   }
-  
+
   public var mapOutline: NSColor = .black {
     didSet {
       setNeedsDisplay(bounds)
@@ -71,7 +71,7 @@ public class GeoMapView: NSView {
       setNeedsDisplay(bounds)
     }
   }
-  
+
   private var _drawer: GeoDrawer!
   private var drawer: GeoDrawer {
     if let _drawer {
@@ -87,7 +87,7 @@ public class GeoMapView: NSView {
       return drawer
     }
   }
-  
+
   public override func draw(_ rect: NSRect) {
     // Don't draw if we're busy as this will flicker weirdly
     let projected: [GeoDrawer.ProjectedContent]
@@ -99,12 +99,12 @@ public class GeoMapView: NSView {
     case .finished(let finished):
       projected = finished
     }
-    
+
     super.draw(rect)
 
     // Get the current graphics context and cast it to a CGContext
     let context = NSGraphicsContext.current!.cgContext
-    
+
     // Use Core Graphics functions to draw the content of your view
     drawer.draw(
       projected,
@@ -114,17 +114,17 @@ public class GeoMapView: NSView {
       in: context
     )
   }
-  
+
   // MARK: - Performance
-  
+
   enum ProjectionProgress {
     case finished([GeoDrawer.ProjectedContent])
     case busy(Task<Void, Never>, previously: [GeoDrawer.ProjectedContent]?)
     case idle
   }
-  
+
   private var projectProgress = ProjectionProgress.idle
-  
+
   private func invalidateProjectedContents() {
     let previous: [GeoDrawer.ProjectedContent]?
     switch projectProgress {
@@ -140,7 +140,7 @@ public class GeoMapView: NSView {
     projectProgress = .busy(Task(priority: .high) { [weak self] in
       guard let self else { return }
       do {
-        let projected = try await drawer.projectInParallel(contents)
+        let projected = try await drawer.projectInParallel(contents, coordinateSystem: .bottomLeft)
         await MainActor.run {
           self.projectProgress = .finished(projected)
           self.setNeedsDisplay(self.bounds)
@@ -154,7 +154,7 @@ public class GeoMapView: NSView {
 
 @available(macOS 10.15, *)
 public struct GeoMap: NSViewRepresentable {
-  
+
   public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: NSColor? = nil, mapOutline: NSColor? = nil, mapBackdrop: NSColor? = nil) {
     self.contents = contents
     self.projection = projection
@@ -164,23 +164,23 @@ public struct GeoMap: NSViewRepresentable {
     self.mapOutline = mapOutline
     self.mapBackdrop = mapBackdrop
   }
-  
+
   public var contents: [GeoDrawer.Content] = []
-  
+
   public var projection: Projection = Projections.Equirectangular()
-  
+
   public var zoomTo: GeoJSON.BoundingBox? = nil
-  
+
   public var insets: GeoProjector.EdgeInsets = .zero
-  
+
   public var mapBackground: NSColor? = nil
-  
+
   public var mapOutline: NSColor? = nil
-  
+
   public var mapBackdrop: NSColor? = nil
-  
+
   public typealias NSViewType = GeoMapView
-  
+
   public func makeNSView(context: Context) -> GeoMapView {
     let view = GeoMapView()
     view.contents = contents
@@ -198,7 +198,7 @@ public struct GeoMap: NSViewRepresentable {
     }
     return view
   }
-  
+
   public func updateNSView(_ view: GeoMapView, context: Context) {
     view.contents = contents
     view.projection = projection
