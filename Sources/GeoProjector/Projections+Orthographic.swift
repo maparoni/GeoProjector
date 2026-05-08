@@ -33,11 +33,26 @@ extension Projections {
       if clip, isOnBackside(point) {
         return nil
       }
-      
+
       return .init(
         x: cos(point.y) * sin(point.x - reference.x),
         y: cos(reference.y) * sin(point.y) - sin(reference.y) * cos(point.y) * cos(point.x - reference.x)
       )
+    }
+
+    public func inverse(_ point: Point) -> Point? {
+      let X = point.x, Y = point.y
+      let rho = sqrt(X*X + Y*Y)
+      guard rho <= 1.0 + 1e-12 else { return nil }
+      if rho < 1e-15 { return reference }
+      let c = asin(min(1.0, rho))
+      let sinC = sin(c), cosC = cos(c)
+      let phi = asin(cosC * sin(reference.y) + (Y * sinC * cos(reference.y)) / rho)
+      let lam = reference.x + atan2(
+        X * sinC,
+        rho * cos(reference.y) * cosC - Y * sin(reference.y) * sinC
+      )
+      return .init(x: Projections.wrapLongitude(lam), y: phi)
     }
     
     public func willWrap(_ point: Point) -> Bool {
