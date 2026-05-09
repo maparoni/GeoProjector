@@ -45,11 +45,16 @@ extension ContentView {
     }
 
     /// Whether the projection's output depends on the reference longitude.
+    /// Danseiji V and VI are hand-tuned asymmetric meshes (V emphasises
+    /// continents over oceans; VI weighs population alongside area), so
+    /// rotating their reference longitude misaligns the deformations from
+    /// the underlying geography. They pin the reference at `(0, 0)` and
+    /// the slider is disabled to match.
     var usesReferenceLongitude: Bool {
       switch self {
-      case .cassini: return false
+      case .cassini, .danseijiV, .danseijiVI: return false
       case .equirectangular, .mercator, .gallPeters, .equalEarth, .naturalEarth, .orthographic, .azimuthal,
-           .danseijiI, .danseijiII, .danseijiIII, .danseijiIV, .danseijiV, .danseijiVI: return true
+           .danseijiI, .danseijiII, .danseijiIII, .danseijiIV: return true
       }
     }
   }

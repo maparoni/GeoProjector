@@ -82,6 +82,33 @@ struct DanseijiTests {
     #expect(abs(shifted.y - centred.y) < 0.1)
   }
 
+  /// Danseiji V and VI are hand-tuned asymmetric meshes (V emphasises
+  /// continents; VI weighs population alongside area). Rotating their
+  /// reference longitude shears the hand-tuned distortions away from the
+  /// underlying geography, so they intentionally pin the reference at
+  /// `(0, 0)` regardless of the constructor argument.
+  @Test func vAndVIIgnoreReference() throws {
+    let pinnedV = try #require(
+      Projections.DanseijiV(reference: .init(x: .pi / 4, y: .pi / 6))
+        .project(.init(x: 1.0, y: 0.3))
+    )
+    let centredV = try #require(
+      Projections.DanseijiV().project(.init(x: 1.0, y: 0.3))
+    )
+    #expect(pinnedV == centredV)
+    #expect(Projections.DanseijiV(reference: .init(x: 1, y: 1)).reference == .init(x: 0, y: 0))
+
+    let pinnedVI = try #require(
+      Projections.DanseijiVI(reference: .init(x: -.pi / 3, y: .pi / 8))
+        .project(.init(x: -0.5, y: 0.2))
+    )
+    let centredVI = try #require(
+      Projections.DanseijiVI().project(.init(x: -0.5, y: 0.2))
+    )
+    #expect(pinnedVI == centredVI)
+    #expect(Projections.DanseijiVI(reference: .init(x: -1, y: 0.5)).reference == .init(x: 0, y: 0))
+  }
+
   @Test(arguments: DanseijiVariant.allCases)
   func inverseRoundTripsCoarseGrid(variant: DanseijiVariant) async throws {
     let projection = variant.resolve()

@@ -117,16 +117,22 @@ extension Projections {
   }
 
   /// Danseiji V — shows off continents by compressing the oceans.
+  ///
+  /// V's mesh deforms continents and oceans with a hand-tuned, asymmetric
+  /// pattern. Rotating the map about an arbitrary reference longitude
+  /// shears those deformations relative to the geography in a way that
+  /// stops being meaningful, so the reference is intentionally pinned at
+  /// `(0, 0)` regardless of the constructor argument.
   public struct DanseijiV: Projection {
     public init(reference: Point) {
-      self.reference = reference
+      // `reference` ignored by design — see doc comment.
       let data = DanseijiLoader.data(for: .v)
       self.data = data
       self.projectionSize = data.projectionSize
       self.mapBounds = .bezier(data.edge)
     }
 
-    public let reference: Point
+    public let reference: Point = .init(x: 0, y: 0)
     public let projectionSize: Size
     public let mapBounds: MapBounds
     private let data: DanseijiData
@@ -141,16 +147,22 @@ extension Projections {
   }
 
   /// Danseiji VI — compromise where both physical area and population affect size.
+  ///
+  /// Like V, VI is hand-tuned: its cell sizes encode population density on
+  /// top of equal-area distortions, so rotating about a different reference
+  /// longitude misaligns the population-weighted regions from their
+  /// underlying geography. The reference is therefore pinned at `(0, 0)`
+  /// regardless of the constructor argument.
   public struct DanseijiVI: Projection {
     public init(reference: Point) {
-      self.reference = reference
+      // `reference` ignored by design — see doc comment.
       let data = DanseijiLoader.data(for: .vi)
       self.data = data
       self.projectionSize = data.projectionSize
       self.mapBounds = .bezier(data.edge)
     }
 
-    public let reference: Point
+    public let reference: Point = .init(x: 0, y: 0)
     public let projectionSize: Size
     public let mapBounds: MapBounds
     private let data: DanseijiData
