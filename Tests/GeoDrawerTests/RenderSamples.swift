@@ -117,6 +117,132 @@ struct RenderSamples {
 
     print("Wrote sample to \(outputURL.path)")
   }
+
+  /// Renders the same Danseiji IV view but with the Blue Marble served
+  /// through a `StaticTileSource` (4×2 grid of 1350×1350 tiles inside a
+  /// virtual 4×4 zoom=2 grid; the top/bottom rows are empty because
+  /// equirectangular content is 2:1, not square). Output should match
+  /// `danseiji-iv-blue-marble.png` modulo a 1-pixel hard seam at the
+  /// inter-tile boundaries (cross-tile bilinear blending isn't
+  /// implemented in v1).
+  @Test func render_danseiji_iv_blue_marble_tiled() async throws {
+    guard Self.isEnabled else { return }
+
+    let cgImage = try #require(Self.loadBlueMarble(), "missing Blue Marble JPEG")
+    let tiles = try Self.tileEquirectangularImage(cgImage, gridX: 4, gridYContent: 2, zoom: 2)
+
+    let source = StaticTileSource(
+      projection: Projections.Equirectangular(),
+      tileSize: cgImage.width / 4,  // 1350
+      tiles: tiles
+    )
+    let tiledBaseMap = GeoDrawer.TiledBaseMap(source: source, zoom: 2, sampling: .bilinear)
+
+    let canvasW = 1600
+    let canvasH = 800
+    let drawer = GeoDrawer(
+      size: .init(width: Double(canvasW), height: Double(canvasH)),
+      projection: Projections.DanseijiIV()
+    )
+    try await drawer.prefetchTiles(for: tiledBaseMap)
+
+    let bytesPerRow = canvasW * 4
+    var buffer = [UInt8](repeating: 0, count: bytesPerRow * canvasH)
+    let cs = CGColorSpaceCreateDeviceRGB()
+    let context = try #require(buffer.withUnsafeMutableBufferPointer { ptr -> CGContext? in
+      CGContext(
+        data: ptr.baseAddress,
+        width: canvasW, height: canvasH,
+        bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+        space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+      )
+    })
+
+    let backdrop = CGColor(red: 0.05, green: 0.06, blue: 0.10, alpha: 1)
+    let mapBackground = CGColor(red: 0.10, green: 0.20, blue: 0.30, alpha: 1)
+    let mapOutline = CGColor(red: 0.95, green: 0.95, blue: 0.95, alpha: 1)
+
+    let continents = try GeoDrawer.Content.content(
+      for: GeoDrawer.Content.countries(),
+      style: .init(
+        color: CGColor(red: 0.85, green: 0.85, blue: 0.85, alpha: 0.4),
+        lineWidth: 0.5
+      )
+    )
+
+    var contents: [GeoDrawer.Content] = [.tiledBaseMap(tiledBaseMap)]
+    contents.append(contentsOf: continents)
+
+    drawer.draw(
+      contents,
+      mapBackground: mapBackground,
+      mapOutline: mapOutline,
+      mapBackdrop: backdrop,
+      in: context
+    )
+
+    let rendered = try #require(context.makeImage())
+    let outputURL = Self.outputDirectory.appendingPathComponent("danseiji-iv-blue-marble-tiled.png")
+    try Self.writePNG(rendered, to: outputURL)
+
+    print("Wrote sample to \(outputURL.path)")
+  }
+
+  /// Splits an equirectangular CGImage into the standard square-tile grid
+  /// scheme used by `StaticTileSource`. The image content occupies
+  /// `gridYContent` rows in the middle of a `gridX × gridX` (zoom `z`)
+  /// virtual grid; the top and bottom rows are empty (no tiles emitted),
+  /// reflecting that equirectangular content is 2:1 in a square grid.
+  private static func tileEquirectangularImage(
+    _ cgImage: CGImage, gridX: Int, gridYContent: Int, zoom: Int
+  ) throws -> [TileKey: TileImage] {
+    let imageW = cgImage.width
+    let imageH = cgImage.height
+    precondition(imageW.isMultiple(of: gridX),
+                 "image width \(imageW) must be a multiple of gridX \(gridX)")
+    precondition(imageH.isMultiple(of: gridYContent),
+                 "image height \(imageH) must be a multiple of gridYContent \(gridYContent)")
+
+    let tileSize = imageW / gridX
+    precondition(imageH / gridYContent == tileSize,
+                 "image must be \(gridYContent):\(gridX) aspect to fit square \(tileSize)px tiles")
+
+    let n = 1 << zoom
+    precondition(n == gridX, "gridX (\(gridX)) must equal 2^zoom (\(n))")
+
+    // Tiles populate rows at the centre of the n-row grid. For n=4 and
+    // gridYContent=2, content lives in rows 1 and 2.
+    let rowOffset = (n - gridYContent) / 2
+
+    let cs = CGColorSpaceCreateDeviceRGB()
+    var tiles: [TileKey: TileImage] = [:]
+
+    for ty in 0..<gridYContent {
+      for tx in 0..<gridX {
+        let bytesPerRow = tileSize * 4
+        var pixels = [UInt8](repeating: 0, count: bytesPerRow * tileSize)
+        let drew: Bool = pixels.withUnsafeMutableBufferPointer { ptr in
+          guard let ctx = CGContext(
+            data: ptr.baseAddress,
+            width: tileSize, height: tileSize,
+            bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+            space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+          ) else { return false }
+          // Translate the source so the right slice lands at (0, 0).
+          ctx.translateBy(x: -CGFloat(tx * tileSize), y: -CGFloat(imageH - (ty + 1) * tileSize))
+          ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: imageW, height: imageH))
+          return true
+        }
+        if !drew {
+          throw NSError(domain: "RenderSamples", code: 3, userInfo: [NSLocalizedDescriptionKey: "tile \(tx),\(ty) failed"])
+        }
+        tiles[TileKey(z: zoom, x: tx, y: rowOffset + ty)] = TileImage(
+          width: tileSize, height: tileSize, pixels: pixels
+        )
+      }
+    }
+    return tiles
+  }
 }
 
 #endif
