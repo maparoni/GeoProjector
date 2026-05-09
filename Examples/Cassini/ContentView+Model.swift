@@ -74,9 +74,10 @@ extension ContentView {
   }
   
   class Model: ObservableObject {
-    init(layers: [Layer] = []) {
+    init(layers: [Layer] = [], showBaseMap: Bool = false) {
       self.layers = layers
       self.projection = Projections.Orthographic()
+      self.showBaseMap = showBaseMap
     }
     
     @Published var layers: [Layer]
