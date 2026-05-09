@@ -66,6 +66,7 @@ let package = Package(
       dependencies: [
         "GeoDrawer",
         "GeoProjector",
+        "GeoProjectorDanseiji",
       ]),
   ]
 )
