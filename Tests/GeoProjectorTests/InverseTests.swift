@@ -127,7 +127,7 @@ struct InverseTests {
     let geo = GeoJSON.Position(latitude: 35.0, longitude: -120.0)
 
     let pixel = proj.point(for: .init(x: geo.longitude.toRadians(), y: geo.latitude.toRadians()),
-                           size: size, coordinateSystem: .topLeft)?.0
+                           size: size, coordinateSystem: .topLeft)
     #expect(pixel != nil)
 
     let recovered = proj.coordinate(at: pixel!, size: size, coordinateSystem: .topLeft)

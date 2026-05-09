@@ -13,9 +13,10 @@ import SwiftUI
 
 import GeoJSONKit
 import GeoDrawer
+import GeoProjectorDanseiji
 
 extension ContentView {
-  
+
   enum ProjectionType: String, CaseIterable, Identifiable {
     case equirectangular
     case cassini
@@ -25,6 +26,12 @@ extension ContentView {
     case naturalEarth
     case orthographic
     case azimuthal
+    case danseijiI
+    case danseijiII
+    case danseijiIII
+    case danseijiIV
+    case danseijiV
+    case danseijiVI
 
     var id: String { rawValue }
 
@@ -32,15 +39,22 @@ extension ContentView {
     var usesReferenceLatitude: Bool {
       switch self {
       case .orthographic, .azimuthal: return true
-      case .equirectangular, .cassini, .mercator, .gallPeters, .equalEarth, .naturalEarth: return false
+      case .equirectangular, .cassini, .mercator, .gallPeters, .equalEarth, .naturalEarth,
+           .danseijiI, .danseijiII, .danseijiIII, .danseijiIV, .danseijiV, .danseijiVI: return false
       }
     }
 
     /// Whether the projection's output depends on the reference longitude.
+    /// Danseiji V and VI are hand-tuned asymmetric meshes (V emphasises
+    /// continents over oceans; VI weighs population alongside area), so
+    /// rotating their reference longitude misaligns the deformations from
+    /// the underlying geography. They pin the reference at `(0, 0)` and
+    /// the slider is disabled to match.
     var usesReferenceLongitude: Bool {
       switch self {
-      case .cassini: return false
-      case .equirectangular, .mercator, .gallPeters, .equalEarth, .naturalEarth, .orthographic, .azimuthal: return true
+      case .cassini, .danseijiV, .danseijiVI: return false
+      case .equirectangular, .mercator, .gallPeters, .equalEarth, .naturalEarth, .orthographic, .azimuthal,
+           .danseijiI, .danseijiII, .danseijiIII, .danseijiIV: return true
       }
     }
   }
@@ -108,6 +122,18 @@ extension ContentView {
         projection = Projections.Orthographic(reference: reference)
       case .azimuthal:
         projection = Projections.AzimuthalEquidistant(reference: reference)
+      case .danseijiI:
+        projection = Projections.DanseijiI(reference: reference)
+      case .danseijiII:
+        projection = Projections.DanseijiII(reference: reference)
+      case .danseijiIII:
+        projection = Projections.DanseijiIII(reference: reference)
+      case .danseijiIV:
+        projection = Projections.DanseijiIV(reference: reference)
+      case .danseijiV:
+        projection = Projections.DanseijiV(reference: reference)
+      case .danseijiVI:
+        projection = Projections.DanseijiVI(reference: reference)
       }
     }
     

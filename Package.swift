@@ -14,6 +14,9 @@ let package = Package(
       name: "GeoProjector",
       targets: ["GeoProjector"]),
     .library(
+      name: "GeoProjectorDanseiji",
+      targets: ["GeoProjectorDanseiji"]),
+    .library(
       name: "GeoDrawer",
       targets: ["GeoDrawer"]),
   ],
@@ -34,6 +37,23 @@ let package = Package(
       name: "GeoProjectorTests",
       dependencies: [
         "GeoProjector",
+      ]),
+    .target(
+      name: "GeoProjectorDanseiji",
+      dependencies: [
+        "GeoProjector",
+        .product(name: "GeoJSONKit", package: "geojsonkit"),
+      ],
+      resources: [
+        // `.process` (rather than `.copy`) so SPM emits a properly-formed
+        // bundle with an Info.plist on iOS — bare `.copy` directories fail
+        // CodeSign with "bundle format unrecognized" on the iOS device SDK.
+        .process("Resources"),
+      ]),
+    .testTarget(
+      name: "GeoProjectorDanseijiTests",
+      dependencies: [
+        "GeoProjectorDanseiji",
       ]),
     .target(
       name: "GeoDrawer",

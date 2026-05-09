@@ -5,18 +5,25 @@
 
 This is a Swift-only library to calculate and draw map projections.
 
-**This is in early days, has some glitches, and is not yet stable.**
+**The API is still evolving — pin to a specific minor version while we are
+on `0.x`.**
 
-- GeoProjector: Map projections, turning coordinates into projected coordinates
-  and into screen coordinates.
-- GeoDrawer: Draw GeoJSON using whichever projection you choose.
+- **GeoProjector**: Map projections, turning geographic coordinates into
+  projected coordinates and into screen coordinates. Includes a forward
+  `project` and an `inverse` so you can map a screen-space click back to
+  latitude/longitude.
+- **GeoProjectorDanseiji**: The six [Danseiji](https://kunimune.home.blog/2019/11/07/introducing-the-danseiji-projections/)
+  projections by Justin Kunimune, packaged as their own product so the
+  ~1 MB of pre-baked mesh data only ships with apps that ask for it.
+- **GeoDrawer**: Draw GeoJSON using whichever projection you choose.
 
 ## Goals of this library
 
 - Support a selection of map projections, but not an exhaustive list
 - Provide methods for drawing those projections, draw GeoJSON content on top,
   and drawing just a section of the resulting map
-- Provide methods for getting coordinates of projected map points
+- Provide methods for projecting points and inverting screen-space points back
+  to geographic coordinates
 - Compatibility with Apple platforms and Linux
 
 ## Dependencies
@@ -34,31 +41,46 @@ related Swift libraries and depends on:
 
 ### Installation
 
-**As noted above, this library is not yet stable!** 
-
-To install GeoProjector using the [Swift Package Manager](https://swift.org/package-manager/), 
-add the following package to the `dependencies` in your Package.swift file or 
+To install GeoProjector using the [Swift Package Manager](https://swift.org/package-manager/),
+add the following package to the `dependencies` in your `Package.swift` file or
 in Xcode:
 
 ```swift
 .package(
-  name: "GeoProjector", url: "https://github.com/maparoni/geoprojector", 
-  branch: "main" // no tagged versions yet 
+  url: "https://github.com/maparoni/geoprojector",
+  from: "0.1.0"
+)
+```
+
+The package vends three products. Add only the ones you need to your target's
+dependencies — pulling in `GeoProjectorDanseiji` is what brings the mesh data
+along, so leave it out unless you actually use those projections.
+
+```swift
+.target(
+  name: "MyApp",
+  dependencies: [
+    .product(name: "GeoProjector",         package: "GeoProjector"), // projections
+    .product(name: "GeoDrawer",            package: "GeoProjector"), // drawing helpers
+    .product(name: "GeoProjectorDanseiji", package: "GeoProjector"), // optional
+  ]
 )
 ```
 
 ### Projections
 
-Projections are defined using the `Projection` protocol, which defines the
-expected `project` method, but also some additional information, such as the
-shape of the map bounds of the projection.
+Projections are defined using the `Projection` protocol, which declares the
+forward `project(_:)` and inverse `inverse(_:)` methods, plus metadata such as
+the shape of the projection's `mapBounds`.
 
 The projections themselves are available through the `Projections` namespace
-(i.e., a caseless enum) which provides implementations of different projections.
-Note that the implementations are based on radians, but there are various
+(i.e., a caseless enum) which provides implementations of Equirectangular,
+Cassini, Mercator, Gall-Peters, Equal Earth, Natural Earth, Orthographic,
+Azimuthal Equidistant, and — via `GeoProjectorDanseiji` — Danseiji I through
+VI. Note that the implementations are based on radians, but there are various
 helper methods to work with GeoJSON and coordinates in degrees.
 
-Example usage:
+Project a coordinate to a screen-space point:
 
 ```swift
 import GeoProjector
@@ -68,41 +90,59 @@ let projection = Projections.Orthographic(
 )
 let sydney = GeoJSON.Position(latitude: -33.8, longitude: 151.3)
 let projected = projection.point(
-  for: sydney, 
-  size: .init(width: 100, height: 100) // the maximum size of the canvas
-)?.0
+  for: sydney,
+  size: .init(width: 100, height: 100), // the maximum size of the canvas
+  coordinateSystem: .topLeft
+)
 ```
 
-Note that projected points align with what's common on the platform, so macOS
-has `(x: 0, y: 0)` for the bottom left map coordinate `(latitude: -180, 
-longitude: -90)` while other platforms have it in the top left map coordinate
-`(latitude: -180, longitude: 90)`.
+Convert a screen-space point (e.g., the location of a click) back to a
+geographic coordinate:
 
-### Maps (AppKit)
+```swift
+let click = Point(x: 60, y: 40)
+let geo = projection.coordinate(
+  at: click,
+  size: .init(width: 100, height: 100),
+  coordinateSystem: .topLeft
+) // GeoJSON.Position?, nil if the click is outside the projection's image
+```
 
-The GeoDrawer library includes an NSView called GeoMapView and a corresponding
-SwiftUI view called GeoMap. You can use these to get a map view to draw content
-on.
+Inverse returns `nil` when the click sits outside the projection's image —
+e.g. clicking off the globe of an Orthographic map, or beyond the bezier
+outline of Equal Earth — so you can use it to filter map-area hits.
+
+Coordinate-system handling matches the platform convention: `.topLeft` puts
+`(0, 0)` at the top-left corner (UIKit, SwiftUI, SVG) and `.bottomLeft` puts
+it at the bottom-left (mathematical / non-flipped AppKit).
+
+### Maps
+
+`GeoDrawer` ships a SwiftUI view called `GeoMap` (backed by `GeoMapView`,
+which is an `NSView` on macOS and a `UIView` on iOS / tvOS / visionOS). It
+draws GeoJSON content with the projection of your choice and updates async
+when its inputs change.
 
 ```swift
 import SwiftUI
 import GeoDrawer
 
 struct MyMap: View {
-
   var body: some View {
     GeoMap(
       contents: try! GeoDrawer.Content.world(),
       projection: Projections.Cassini()
     )
   }
-  
 }
 ```
 
+You can also draw straight into a `CGContext` (see `GeoDrawer.draw(_:in:)`)
+or render to SVG (`GeoDrawer.drawSVG(_:)`).
+
 ## Credits
 
-The code in this repo is all written by myself, [Adrian Schönig](https://github.com/nighthawk),
+The code in this repo is written by myself, [Adrian Schönig](https://github.com/nighthawk), along recently with help from [Claude](https://claude.ai)
 but it wouldn't have been able to do this so smoothly without the help of these
 precious resources:
 

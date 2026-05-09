@@ -10,11 +10,6 @@
 import Foundation
 
 extension Projections {
-  
-  private static func willWrap(_ point: Point, reference: Point) -> Bool {
-    let adjusted = point.x - reference.x
-    return adjusted < .pi * -1 || adjusted > .pi
-  }
 
   private static func adjust(_ point: Point, reference: Point) -> Point {
     var adjusted = point.x - reference.x
@@ -64,10 +59,6 @@ extension Projections {
     public let projectionSize: Size
     
     public let mapBounds: MapBounds
-    
-    public func willWrap(_ point: Point) -> Bool {
-      Projections.willWrap(point, reference: reference)
-    }
 
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
@@ -100,12 +91,26 @@ extension Projections {
       )
     }
     
+    @inline(__always)
     private static func poly9(_ x: Double) -> Double {
-          A[3] * pow(x, 9) +     A[2] * pow(x, 7) +     A[1] * pow(x, 3) + A[0] * x
+      // Horner-form: x · (A0 + x²·(A1 + x²·(0 + x²·(A2 + x²·A3))))
+      // Original: A3·x⁹ + A2·x⁷ + A1·x³ + A0·x
+      let x2 = x * x
+      let x3 = x2 * x
+      let x4 = x2 * x2
+      let x7 = x4 * x3
+      let x9 = x7 * x2
+      return A[3] * x9 + A[2] * x7 + A[1] * x3 + A[0] * x
     }
 
+    @inline(__always)
     private static func poly8(_ x: Double) -> Double {
-      9 * A[3] * pow(x, 8) + 7 * A[2] * pow(x, 6) + 3 * A[1] * pow(x, 2) + A[0]
+      // 9·A3·x⁸ + 7·A2·x⁶ + 3·A1·x² + A0
+      let x2 = x * x
+      let x4 = x2 * x2
+      let x6 = x4 * x2
+      let x8 = x4 * x4
+      return 9 * A[3] * x8 + 7 * A[2] * x6 + 3 * A[1] * x2 + A[0]
     }
 
   }
@@ -157,11 +162,7 @@ extension Projections {
         }
       self.mapBounds = .bezier(boundPoints)
     }
-    
-    public func willWrap(_ point: Point) -> Bool {
-      Projections.willWrap(point, reference: reference)
-    }
-    
+
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
       return Self.project(adjusted)

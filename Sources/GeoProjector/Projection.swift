@@ -48,14 +48,20 @@ public protocol Projection {
   /// or beyond the rectangle for the cylindricals).
   func inverse(_ point: Point) -> Point?
 
-  func willWrap(_ point: Point) -> Bool
-
   /// The maximum width/height that the projection uses, in radians.
   ///
   /// All projected points should be in the range of:
   /// - x in `(-projectionSize.width / 2)...((+projectionSize.width / 2)`, and
   /// - y in `(-projectionSize.height / 2)...((+projectionSize.height / 2)`.
   var projectionSize: Size { get }
+
+  /// The portion of the projection's coordinate system that should be fitted
+  /// into the drawing canvas. Defaults to a rect of `projectionSize` centred
+  /// at the origin — appropriate for projections whose output is naturally
+  /// symmetric around the geographic origin. Projections like Danseiji III–VI
+  /// whose edge polygon is asymmetric about the origin override this so
+  /// canvas fitting hugs the actual map shape rather than wasting space.
+  var visibleBounds: Rect { get }
 
   /// The bounds of the visible map
   var mapBounds: MapBounds { get }
@@ -67,7 +73,12 @@ extension Projection {
 
   public var invertCheck: ((GeoJSON.Polygon) -> Bool)? { nil }
 
-  public func willWrap(_ point: Point) -> Bool { false }
+  public var visibleBounds: Rect {
+    Rect(
+      origin: Point(x: -projectionSize.width / 2, y: -projectionSize.height / 2),
+      size: projectionSize
+    )
+  }
 
 }
 
@@ -82,12 +93,10 @@ extension Projection {
   /// Projects an input point into a projected  point within `size` where it should be drawn, optionally
   /// accounting for zooming into
   /// a particular area of the map and adding insets around the map.
-  public func point(for point: Point, size: Size, zoomTo: Rect? = nil, insets: EdgeInsets = .zero, coordinateSystem: CoordinateSystem) -> (Point, Bool)? {
-    let wrap = self.willWrap(point)
-
+  public func point(for point: Point, size: Size, zoomTo: Rect? = nil, insets: EdgeInsets = .zero, coordinateSystem: CoordinateSystem) -> Point? {
     guard let projected = project(point) else { return nil }
 
-    return (translate(projected, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem), wrap)
+    return translate(projected, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
   }
 
   /// Translates the projected `point` into a point within `size` where it should be drawn.
@@ -125,12 +134,13 @@ extension Projection {
   }
 
   private func simpleTranslate(_ point: Point, to size: Size) -> Point {
-    let myRatio = projectionSize.aspectRatio
+    let bounds = visibleBounds
+    let myRatio = bounds.size.aspectRatio
     let targetRatio = size.aspectRatio
 
     let canvasSize: Size
     if myRatio > targetRatio {
-      // target is heigher than me
+      // target is taller than me
       canvasSize = .init(width: size.width, height: size.width / myRatio)
     } else {
       // target is wider than me
@@ -143,8 +153,8 @@ extension Projection {
     )
 
     let normalized = Point(
-      x: (point.x + projectionSize.width  / 2) / projectionSize.width,
-      y: (point.y + projectionSize.height / 2) / projectionSize.height
+      x: (point.x - bounds.origin.x) / bounds.size.width,
+      y: (point.y - bounds.origin.y) / bounds.size.height
     )
 
     return .init(
@@ -190,7 +200,8 @@ extension Projection {
   }
 
   private func simpleUntranslate(_ point: Point, from size: Size) -> Point {
-    let myRatio = projectionSize.aspectRatio
+    let bounds = visibleBounds
+    let myRatio = bounds.size.aspectRatio
     let targetRatio = size.aspectRatio
 
     let canvasSize: Size
@@ -211,8 +222,8 @@ extension Projection {
     )
 
     return .init(
-      x: normalized.x * projectionSize.width  - projectionSize.width  / 2,
-      y: normalized.y * projectionSize.height - projectionSize.height / 2
+      x: normalized.x * bounds.size.width  + bounds.origin.x,
+      y: normalized.y * bounds.size.height + bounds.origin.y
     )
   }
 
