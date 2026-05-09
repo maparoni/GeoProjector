@@ -11,6 +11,8 @@
 import CoreGraphics
 import Foundation
 
+import GeoProjector
+
 #if canImport(UIKit)
 import UIKit
 #elseif canImport(AppKit)
@@ -104,36 +106,35 @@ extension GeoDrawer {
 
   /// Describes a raster image to drape under the projection's vector layers.
   ///
-  /// In v1 the source image must be **equirectangular** (longitude on x ∈
-  /// `[-π, π]`, latitude on y ∈ `[π/2, -π/2]`, top of the image is the north
-  /// pole). NASA Blue Marble / Visible Earth and most public-domain world
-  /// imagery ships in this form. Other source projections are reserved for
-  /// future versions.
+  /// The source image is assumed to be a complete, axis-aligned rendering of
+  /// `sourceProjection` filling its `visibleBounds`. NASA Blue Marble and
+  /// most public-domain world imagery ship in `Projections.Equirectangular`
+  /// (the default). Web-Mercator world imagery uses `Projections.Mercator`.
+  /// In principle any projection works as long as the image's aspect ratio
+  /// matches the projection's natural aspect ratio; otherwise the renderer
+  /// will sample non-image areas as transparent.
   ///
-  /// SVG output (`drawSVG(_:)`) does not embed the raster in v1.
-  public struct BaseMap: Hashable {
-
-    public enum SourceProjection: Hashable {
-      case equirectangular
-    }
+  /// SVG output (`drawSVG(_:)`) does not embed the raster.
+  public struct BaseMap {
 
     public enum Sampling: Hashable {
       /// Pick the closest source pixel. Cheapest and produces visible
       /// stair-stepping when the source is upsampled.
       case nearest
       /// Linearly blend the four nearest source pixels. Wraps on the antimeridian
-      /// so cylindrical projections don't show a vertical seam at ±180°.
+      /// for projections that report `wrapsLongitudinally = true`, so
+      /// cylindrical sources don't show a vertical seam at ±180°.
       case bilinear
     }
 
     public let image: BaseMapImage
-    public let sourceProjection: SourceProjection
+    public let sourceProjection: any Projection
     public let sampling: Sampling
     public let alpha: Double
 
     public init(
       image: BaseMapImage,
-      sourceProjection: SourceProjection = .equirectangular,
+      sourceProjection: any Projection = Projections.Equirectangular(),
       sampling: Sampling = .bilinear,
       alpha: Double = 1.0
     ) {
@@ -143,9 +144,11 @@ extension GeoDrawer {
       self.alpha = max(0, min(1, alpha))
     }
 
-    /// Decodes `cgImage` and wraps it as an equirectangular base map.
+    /// Decodes `cgImage` and wraps it as a base map with the supplied source
+    /// projection (defaults to equirectangular).
     public init?(
       cgImage: CGImage,
+      sourceProjection: any Projection = Projections.Equirectangular(),
       sampling: Sampling = .bilinear,
       alpha: Double = 1.0,
       maxDimension: Int = 4096
@@ -153,24 +156,32 @@ extension GeoDrawer {
       guard let img = BaseMapImage.decode(cgImage, maxDimension: maxDimension) else {
         return nil
       }
-      self.init(image: img, sourceProjection: .equirectangular, sampling: sampling, alpha: alpha)
+      self.init(image: img, sourceProjection: sourceProjection, sampling: sampling, alpha: alpha)
     }
 
 #if canImport(UIKit)
     public init?(
       uiImage: UIImage,
+      sourceProjection: any Projection = Projections.Equirectangular(),
       sampling: Sampling = .bilinear,
       alpha: Double = 1.0,
       maxDimension: Int = 4096
     ) {
       guard let cg = uiImage.cgImage else { return nil }
-      self.init(cgImage: cg, sampling: sampling, alpha: alpha, maxDimension: maxDimension)
+      self.init(
+        cgImage: cg,
+        sourceProjection: sourceProjection,
+        sampling: sampling,
+        alpha: alpha,
+        maxDimension: maxDimension
+      )
     }
 #endif
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
     public init?(
       nsImage: NSImage,
+      sourceProjection: any Projection = Projections.Equirectangular(),
       sampling: Sampling = .bilinear,
       alpha: Double = 1.0,
       maxDimension: Int = 4096
@@ -179,9 +190,39 @@ extension GeoDrawer {
       guard let cg = nsImage.cgImage(forProposedRect: &rect, context: nil, hints: nil) else {
         return nil
       }
-      self.init(cgImage: cg, sampling: sampling, alpha: alpha, maxDimension: maxDimension)
+      self.init(
+        cgImage: cg,
+        sourceProjection: sourceProjection,
+        sampling: sampling,
+        alpha: alpha,
+        maxDimension: maxDimension
+      )
     }
 #endif
+  }
+}
+
+extension GeoDrawer.BaseMap: Hashable {
+
+  /// Two `BaseMap` values are equal when they share the same pre-decoded
+  /// image (by reference), the same source-projection identity (type plus
+  /// reference point), and the same sampling/alpha settings. Constructing a
+  /// new `BaseMap` from a fresh image therefore invalidates the drawer's
+  /// raster cache; rebuilding one with identical arguments does not.
+  public static func == (lhs: GeoDrawer.BaseMap, rhs: GeoDrawer.BaseMap) -> Bool {
+    lhs.image === rhs.image
+      && lhs.sampling == rhs.sampling
+      && lhs.alpha == rhs.alpha
+      && type(of: lhs.sourceProjection) == type(of: rhs.sourceProjection)
+      && lhs.sourceProjection.reference == rhs.sourceProjection.reference
+  }
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(image))
+    hasher.combine(sampling)
+    hasher.combine(alpha)
+    hasher.combine(String(reflecting: type(of: sourceProjection)))
+    hasher.combine(sourceProjection.reference)
   }
 }
 

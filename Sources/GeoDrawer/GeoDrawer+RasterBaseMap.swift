@@ -96,6 +96,8 @@ extension GeoDrawer {
     let drawerZoom = zoomTo
     let drawerInsets = insets
 
+    let sourceImage = baseMap.image
+    let sourceImageSize = Size(width: Double(sourceImage.width), height: Double(sourceImage.height))
     let context = RasterContext(
       buffer: buffer,
       width: width,
@@ -106,14 +108,17 @@ extension GeoDrawer {
       projection: projection,
       projSize: projSize,
       mapBounds: mapBounds,
+      sourceProjection: baseMap.sourceProjection,
+      sourceImageSize: sourceImageSize,
+      wrapsLongitudinally: baseMap.sourceProjection.wrapsLongitudinally,
       sampling: baseMap.sampling,
       alpha: baseMap.alpha,
       // Holding a strong reference keeps the underlying buffer alive across
       // every parallel iteration, even if `baseMap`'s scope contracts.
-      imageRef: baseMap.image,
-      imagePixels: baseMap.image.pixels,
-      imageW: baseMap.image.width,
-      imageH: baseMap.image.height
+      imageRef: sourceImage,
+      imagePixels: sourceImage.pixels,
+      imageW: sourceImage.width,
+      imageH: sourceImage.height
     )
 
     DispatchQueue.concurrentPerform(iterations: height) { py in
@@ -164,6 +169,9 @@ private struct RasterContext: @unchecked Sendable {
   let projection: Projection
   let projSize: Size
   let mapBounds: MapBounds
+  let sourceProjection: Projection
+  let sourceImageSize: Size
+  let wrapsLongitudinally: Bool
   let sampling: GeoDrawer.BaseMap.Sampling
   let alpha: Double
   let imageRef: GeoDrawer.BaseMapImage
@@ -173,14 +181,13 @@ private struct RasterContext: @unchecked Sendable {
 
   func renderRow(_ py: Int) {
     let pyD = Double(py) + 0.5
-    let twoPi = 2 * Double.pi
 
     for px in 0..<width {
       let pxD = Double(px) + 0.5
       // Always use `.topLeft` here. The output buffer is laid out in image-
       // row order (row 0 = top of canvas) so it composites correctly via
-      // `CGContext.draw(image:in:)` against either a flipped (UIKit) or
-      // identity (AppKit) CTM.
+      // `CGContext.draw(image:in:)` regardless of platform; the caller
+      // counter-flips the CTM on UIKit so row 0 lands at the visual top.
       let projected = projection.untranslate(
         Point(x: pxD, y: pyD),
         from: drawerSize,
@@ -193,18 +200,38 @@ private struct RasterContext: @unchecked Sendable {
         continue
       }
 
-      // Equirectangular UV. Wrap u modulo 1 so the antimeridian seam isn't
-      // sampled out of bounds. Clamp v to a half-pixel inset so the topmost
-      // and bottommost source rows aren't smeared across the projection's
-      // pole region by bilinear sampling.
-      var u = (geo.x + .pi) / twoPi
-      u -= floor(u)
-      var v = (.pi / 2 - geo.y) / .pi
-      let vEpsilon = 0.5 / Double(imageH)
-      if v < vEpsilon { v = vEpsilon }
-      else if v > 1 - vEpsilon { v = 1 - vEpsilon }
+      // Forward-project the geographic coordinate through the source
+      // projection to find the source-image pixel that backs this output
+      // pixel. `point(for:size:coordinateSystem: .topLeft)` returns image
+      // coordinates with row 0 at the visual top, which matches the source
+      // image's memory layout after `BaseMapImage.decode`.
+      guard let sourcePixel = sourceProjection.point(
+        for: geo,
+        size: sourceImageSize,
+        zoomTo: nil,
+        insets: .zero,
+        coordinateSystem: .topLeft
+      ) else { continue }
 
-      let pixel = sample(u: u, v: v)
+      var sx = sourcePixel.x
+      let sy = sourcePixel.y
+
+      // Out-of-image samples: wrap longitudinally for cylindrical sources
+      // (no antimeridian seam); skip otherwise. The y-axis is always
+      // bounded by the source image's vertical extent, so out-of-range sy
+      // means the geographic point falls outside the source projection's
+      // vertical coverage and we leave the output transparent.
+      if wrapsLongitudinally {
+        let w = Double(imageW)
+        sx -= floor(sx / w) * w
+      } else if sx < 0 || sx >= Double(imageW) {
+        continue
+      }
+      if sy < 0 || sy >= Double(imageH) {
+        continue
+      }
+
+      let pixel = sample(sx: sx, sy: sy)
       // Source bytes are premultiplied (kCGImageAlphaPremultipliedLast on the
       // pre-decode). Scaling all four channels by the global alpha multiplier
       // keeps them in premultiplied form.
@@ -223,27 +250,40 @@ private struct RasterContext: @unchecked Sendable {
     }
   }
 
-  /// Returns RGBA in 0...255. The source buffer is premultiplied — so are
-  /// the returned components, and we keep them premultiplied throughout.
-  private func sample(u: Double, v: Double) -> (UInt8, UInt8, UInt8, UInt8) {
+  /// Returns RGBA in 0...255 from a source-pixel coordinate `(sx, sy)`. The
+  /// source buffer is premultiplied — so are the returned components, and
+  /// we keep them premultiplied throughout. Wraps longitudinally for
+  /// cylindrical sources; clamps vertically.
+  private func sample(sx: Double, sy: Double) -> (UInt8, UInt8, UInt8, UInt8) {
     switch sampling {
     case .nearest:
-      let xi = clamp(Int(u * Double(imageW)), 0, imageW - 1)
-      let yi = clamp(Int(v * Double(imageH)), 0, imageH - 1)
+      let xi: Int
+      if wrapsLongitudinally {
+        xi = ((Int(sx.rounded(.down)) % imageW) + imageW) % imageW
+      } else {
+        xi = clamp(Int(sx.rounded(.down)), 0, imageW - 1)
+      }
+      let yi = clamp(Int(sy.rounded(.down)), 0, imageH - 1)
       let off = (yi * imageW + xi) * 4
       return (imagePixels[off], imagePixels[off + 1], imagePixels[off + 2], imagePixels[off + 3])
 
     case .bilinear:
-      let fx = u * Double(imageW) - 0.5
-      let fy = v * Double(imageH) - 0.5
+      let fx = sx - 0.5
+      let fy = sy - 0.5
       let x0 = Int(floor(fx))
       let y0 = Int(floor(fy))
       let tx = fx - Double(x0)
       let ty = fy - Double(y0)
 
-      // Wrap horizontally (longitude); clamp vertically (latitude).
-      let x0w = ((x0 % imageW) + imageW) % imageW
-      let x1w = (((x0 + 1) % imageW) + imageW) % imageW
+      let x0w: Int
+      let x1w: Int
+      if wrapsLongitudinally {
+        x0w = ((x0 % imageW) + imageW) % imageW
+        x1w = (((x0 + 1) % imageW) + imageW) % imageW
+      } else {
+        x0w = clamp(x0, 0, imageW - 1)
+        x1w = clamp(x0 + 1, 0, imageW - 1)
+      }
       let y0c = clamp(y0, 0, imageH - 1)
       let y1c = clamp(y0 + 1, 0, imageH - 1)
 

@@ -62,7 +62,7 @@ struct RenderSamples {
   /// writes it as `danseiji-iv-blue-marble.png` so the user can confirm the
   /// `drawImage` / image-export path picks up `Content.baseMap` correctly.
   @Test func render_danseiji_iv_blue_marble() throws {
-    try #require(Self.isEnabled, "set RENDER_SAMPLES=1 to enable")
+    guard Self.isEnabled else { return }
 
     let cgImage = try #require(Self.loadBlueMarble(), "missing Blue Marble JPEG")
     let baseMap = try #require(GeoDrawer.BaseMap(cgImage: cgImage, sampling: .bilinear))

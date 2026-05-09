@@ -165,6 +165,71 @@ struct BaseMapTests {
     #expect(first === second)
   }
 
+  @Test func test_mercatorSource_centerPixelMatchesSource() throws {
+    // Source rendered in Mercator projection (square aspect), all red.
+    // An Equirectangular target should still pick up red at the centre.
+    let source = Self.makeImage(width: 32, height: 32) { _, _ in (255, 0, 0, 255) }
+    let baseMap = try #require(GeoDrawer.BaseMap(
+      cgImage: source,
+      sourceProjection: Projections.Mercator(),
+      sampling: .nearest
+    ))
+
+    let drawer = GeoDrawer(
+      size: .init(width: 100, height: 100),
+      projection: Projections.Equirectangular()
+    )
+    let raster = try #require(drawer.renderedBaseMap(baseMap, coordinateSystem: .topLeft))
+
+    let centre = Self.readPixel(raster, x: 50, y: 50)
+    #expect(centre.0 > 200)
+    #expect(centre.1 < 50)
+    #expect(centre.2 < 50)
+    #expect(centre.3 > 200)
+  }
+
+  @Test func test_mercatorSource_verticalOrientation() throws {
+    // Top half red (north), bottom half blue (south). Verifies that the
+    // Equirectangular→Mercator latitude reprojection preserves orientation:
+    // at lat=+45° the renderer should sample the red top half, and at
+    // lat=-45° the blue bottom half.
+    let source = Self.makeImage(width: 32, height: 32) { _, y in
+      y < 16 ? (255, 0, 0, 255) : (0, 0, 255, 255)
+    }
+    let baseMap = try #require(GeoDrawer.BaseMap(
+      cgImage: source,
+      sourceProjection: Projections.Mercator(),
+      sampling: .nearest
+    ))
+
+    // 200x100 matches Equirectangular's 2:1 aspect, so the projection fills
+    // the canvas exactly. y=12 ≈ lat+47°, y=37 ≈ lat-43°.
+    let drawer = GeoDrawer(
+      size: .init(width: 200, height: 100),
+      projection: Projections.Equirectangular()
+    )
+    let raster = try #require(drawer.renderedBaseMap(baseMap, coordinateSystem: .topLeft))
+
+    let north = Self.readPixel(raster, x: 100, y: 12)
+    #expect(north.0 > 200)
+    #expect(north.2 < 50)
+
+    let south = Self.readPixel(raster, x: 100, y: 87)
+    #expect(south.0 < 50)
+    #expect(south.2 > 200)
+  }
+
+  @Test func test_mercatorSource_wrapsLongitudinally() throws {
+    // Mercator should expose wrapsLongitudinally = true so cylindrical
+    // sources don't show a vertical seam at the antimeridian.
+    #expect(Projections.Mercator().wrapsLongitudinally == true)
+    #expect(Projections.Equirectangular().wrapsLongitudinally == true)
+    #expect(Projections.GallPeters().wrapsLongitudinally == true)
+    // Default for non-cylindrical projections.
+    #expect(Projections.Cassini().wrapsLongitudinally == false)
+    #expect(Projections.Orthographic().wrapsLongitudinally == false)
+  }
+
   @Test func test_outOfBoundsPole_isNotSmeared_mercator() throws {
     // Source has a single bright magenta row at the very top (y=0) and
     // dark pixels elsewhere. A naive cylindrical sampler with v clamped
