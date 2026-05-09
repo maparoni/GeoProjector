@@ -130,6 +130,62 @@ struct TileSourceTests {
   }
 #endif
 
+#if canImport(CoreGraphics)
+  @Test func tiledBaseMap_autoZoom_picksLevelMatchingCanvas() throws {
+    // tileSize=256, source supports z=0..10. Auto-zoom should pick:
+    //   round(log2(canvasMax / 256)).
+    // 1024-pixel canvas → log2(4) = 2.
+    // 800-pixel canvas → log2(800/256) = log2(3.125) ≈ 1.64 → 2.
+    // 384-pixel canvas → log2(384/256) = log2(1.5) ≈ 0.58 → 1.
+    let zoomLevels = (0...10).map {
+      TileKey(z: $0, x: 0, y: 0)
+    }
+    let dummyTiles = Dictionary(uniqueKeysWithValues: zoomLevels.map { key in
+      let pixels = [UInt8](repeating: 0, count: 256 * 256 * 4)
+      return (key, TileImage(width: 256, height: 256, pixels: pixels))
+    })
+    let source = StaticTileSource(
+      projection: Projections.Mercator(),
+      tileSize: 256,
+      tiles: dummyTiles
+    )
+    let auto = GeoDrawer.TiledBaseMap(source: source)  // .auto
+
+    let cases: [(canvas: Double, expectedZoom: Int)] = [
+      (1024, 2),
+      (800, 2),
+      (384, 1),
+    ]
+    for (canvas, expected) in cases {
+      let drawer = GeoDrawer(
+        size: .init(width: canvas, height: canvas),
+        projection: Projections.Mercator()
+      )
+      #expect(drawer.resolvedZoom(auto.zoom, source: source) == expected,
+              "canvas=\(canvas) → expected z=\(expected)")
+    }
+  }
+
+  @Test func tiledBaseMap_autoZoom_clampsToSourceRange() throws {
+    let dummy = TileImage(width: 256, height: 256, pixels: [UInt8](repeating: 0, count: 256 * 256 * 4))
+    let source = StaticTileSource(
+      projection: Projections.Mercator(),
+      tileSize: 256,
+      tiles: [
+        TileKey(z: 3, x: 0, y: 0): dummy,
+        TileKey(z: 4, x: 0, y: 0): dummy,
+      ]
+    )
+    let auto = GeoDrawer.TiledBaseMap(source: source)
+    // Tiny canvas would suggest z<3, but source minZoom is 3.
+    let smallDrawer = GeoDrawer(size: .init(width: 64, height: 64), projection: Projections.Mercator())
+    #expect(smallDrawer.resolvedZoom(auto.zoom, source: source) == 3)
+    // Huge canvas would suggest z>4, but source maxZoom is 4.
+    let bigDrawer = GeoDrawer(size: .init(width: 16384, height: 16384), projection: Projections.Mercator())
+    #expect(bigDrawer.resolvedZoom(auto.zoom, source: source) == 4)
+  }
+#endif
+
   @Test func contains_rejectsOutOfRangeZoomAndCoords() {
     let source = StaticTileSource(
       projection: Projections.Mercator(),

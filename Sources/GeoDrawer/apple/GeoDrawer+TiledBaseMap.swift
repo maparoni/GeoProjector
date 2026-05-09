@@ -15,6 +15,22 @@ import Foundation
 
 extension GeoDrawer {
 
+  /// Resolves a `TiledBaseMap.Zoom` to an integer level using this drawer's
+  /// canvas size. For `.auto`, picks the level whose source-canvas pixel
+  /// density most closely matches the output canvas (via
+  /// `log2(max(canvas) / tileSize)`), clamped to the source's range.
+  func resolvedZoom(_ zoom: TiledBaseMap.Zoom, source: any TileSource) -> Int {
+    switch zoom {
+    case .fixed(let z):
+      return z
+    case .auto:
+      let canvasMax = max(size.width, size.height)
+      let raw = log2(max(canvasMax, 1) / Double(source.tileSize))
+      let z = Int(raw.rounded())
+      return min(max(z, source.minZoom), source.maxZoom)
+    }
+  }
+
   /// Pre-fetched tile storage keyed by `(sourceID, tileKey)`. Shared across
   /// drawer copies so successive renders against the same drawer don't
   /// re-fetch unchanged tiles.
@@ -56,7 +72,7 @@ extension GeoDrawer {
   func tilesNeeded(for tiledBaseMap: TiledBaseMap, stride: Int = 16) -> Set<TileKey> {
     guard let projection else { return [] }
     let source = tiledBaseMap.source
-    let z = tiledBaseMap.zoom
+    let z = resolvedZoom(tiledBaseMap.zoom, source: source)
     let n = 1 << z
     let totalSize = Size(
       width: Double(source.tileSize * n),
@@ -137,19 +153,13 @@ extension GeoDrawer {
 
   /// Cache key for the rendered raster — independent of the drawer's
   /// `(projection, size, zoomTo, insets)` tuple, which is captured by
-  /// the cache instance's lifetime.
+  /// the cache instance's lifetime. Uses the *resolved* zoom level so
+  /// `.auto` and `.fixed(z)` that pick the same level share a slot.
   struct TiledRasterCacheKey: Hashable {
     let sourceID: AnyHashable
-    let zoom: Int
+    let resolvedZoom: Int
     let sampling: BaseMap.Sampling
     let alphaMilli: Int
-
-    init(_ tiledBaseMap: TiledBaseMap) {
-      self.sourceID = tiledBaseMap.source.tileSourceID
-      self.zoom = tiledBaseMap.zoom
-      self.sampling = tiledBaseMap.sampling
-      self.alphaMilli = Int((tiledBaseMap.alpha * 1000).rounded())
-    }
   }
 
   /// Renders the tiled base map at the drawer's canvas size using the
@@ -160,16 +170,22 @@ extension GeoDrawer {
     _ tiledBaseMap: TiledBaseMap,
     coordinateSystem: CoordinateSystem
   ) -> CGImage? {
-    let cacheKey = TiledRasterCacheKey(tiledBaseMap)
+    let z = resolvedZoom(tiledBaseMap.zoom, source: tiledBaseMap.source)
+    let cacheKey = TiledRasterCacheKey(
+      sourceID: tiledBaseMap.source.tileSourceID,
+      resolvedZoom: z,
+      sampling: tiledBaseMap.sampling,
+      alphaMilli: Int((tiledBaseMap.alpha * 1000).rounded())
+    )
     if let cached = baseMapCache.getTiled(cacheKey) {
       return cached
     }
-    guard let raster = renderTiledBaseMap(tiledBaseMap) else { return nil }
+    guard let raster = renderTiledBaseMap(tiledBaseMap, zoom: z) else { return nil }
     baseMapCache.setTiled(cacheKey, raster)
     return raster
   }
 
-  private func renderTiledBaseMap(_ tiledBaseMap: TiledBaseMap) -> CGImage? {
+  private func renderTiledBaseMap(_ tiledBaseMap: TiledBaseMap, zoom z: Int) -> CGImage? {
     guard let projection else { return nil }
 
     let width = max(1, Int(size.width.rounded()))
@@ -182,7 +198,6 @@ extension GeoDrawer {
 
     let source = tiledBaseMap.source
     let sourceID = source.tileSourceID
-    let z = tiledBaseMap.zoom
     let n = 1 << z
     let tileSize = source.tileSize
     let totalSize = Size(width: Double(tileSize * n), height: Double(tileSize * n))

@@ -26,23 +26,49 @@ extension GeoDrawer {
   /// Tiles are pre-fetched on the same async path as the projection
   /// pre-warm — see `GeoMapView.invalidateProjectedContents`.
   public struct TiledBaseMap {
+
+    /// How the renderer chooses the zoom level to fetch tiles at.
+    public enum Zoom: Hashable {
+      /// The renderer picks a zoom level matching the canvas resolution
+      /// at draw time: `round(log2(max(canvas.width, canvas.height) /
+      /// source.tileSize))`, clamped to `[source.minZoom, source.maxZoom]`.
+      /// Doesn't account for `zoomTo`-region scaling — for tightly zoomed
+      /// regions, prefer `.fixed(_:)` with a manually-computed level.
+      case auto
+      /// Use this exact zoom level. Must lie in `[source.minZoom,
+      /// source.maxZoom]`.
+      case fixed(Int)
+    }
+
     public let source: any TileSource
-    public let zoom: Int
+    public let zoom: Zoom
     public let sampling: BaseMap.Sampling
     public let alpha: Double
 
+    public init(
+      source: any TileSource,
+      zoom: Zoom = .auto,
+      sampling: BaseMap.Sampling = .bilinear,
+      alpha: Double = 1.0
+    ) {
+      if case let .fixed(z) = zoom {
+        precondition(z >= source.minZoom && z <= source.maxZoom,
+                     "zoom \(z) outside source range [\(source.minZoom), \(source.maxZoom)]")
+      }
+      self.source = source
+      self.zoom = zoom
+      self.sampling = sampling
+      self.alpha = max(0, min(1, alpha))
+    }
+
+    /// Convenience for `init(source:zoom:.fixed(_:),sampling:alpha:)`.
     public init(
       source: any TileSource,
       zoom: Int,
       sampling: BaseMap.Sampling = .bilinear,
       alpha: Double = 1.0
     ) {
-      precondition(zoom >= source.minZoom && zoom <= source.maxZoom,
-                   "zoom \(zoom) outside source range [\(source.minZoom), \(source.maxZoom)]")
-      self.source = source
-      self.zoom = zoom
-      self.sampling = sampling
-      self.alpha = max(0, min(1, alpha))
+      self.init(source: source, zoom: .fixed(zoom), sampling: sampling, alpha: alpha)
     }
   }
 }
