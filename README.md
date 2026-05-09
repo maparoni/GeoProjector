@@ -15,13 +15,17 @@ on `0.x`.**
 - **GeoProjectorDanseiji**: The six [Danseiji](https://kunimune.home.blog/2019/11/07/introducing-the-danseiji-projections/)
   projections by Justin Kunimune, packaged as their own product so the
   ~1 MB of pre-baked mesh data only ships with apps that ask for it.
-- **GeoDrawer**: Draw GeoJSON using whichever projection you choose.
+- **GeoDrawer**: Draw GeoJSON using whichever projection you choose. Also
+  drape raster base maps under your vector layers — either a single source
+  image (e.g. NASA Blue Marble) or a tiled source (slippy `{z}/{x}/{y}`
+  URL templates, or any custom `TileSource`).
 
 ## Goals of this library
 
 - Support a selection of map projections, but not an exhaustive list
 - Provide methods for drawing those projections, draw GeoJSON content on top,
-  and drawing just a section of the resulting map
+  draping raster imagery underneath, and drawing just a section of the
+  resulting map
 - Provide methods for projecting points and inverting screen-space points back
   to geographic coordinates
 - Compatibility with Apple platforms and Linux
@@ -139,6 +143,51 @@ struct MyMap: View {
 
 You can also draw straight into a `CGContext` (see `GeoDrawer.draw(_:in:)`)
 or render to SVG (`GeoDrawer.drawSVG(_:)`).
+
+### Base maps
+
+Drape a raster image under the vector layers — useful for backdrops like
+NASA Blue Marble or any other equirectangular / Mercator world image. The
+source's projection is first-class: pass any `Projection` and the renderer
+forward-projects each output pixel through it to find the source pixel.
+
+```swift
+guard let bm = GeoDrawer.BaseMap(
+  uiImage: UIImage(named: "blue-marble")!,
+  sourceProjection: Projections.Equirectangular(),  // default
+  sampling: .bilinear
+) else { return }
+
+GeoMap(
+  contents: [.baseMap(bm)] + vectorLayers,
+  projection: Projections.EqualEarth()
+)
+```
+
+For high-resolution imagery (split into tiles ahead of time) or live slippy
+maps, use a `TileSource` and `TiledBaseMap` instead. The protocol is pure
+Swift and works on Linux server-side; only the default tile-bytes decoder
+is gated behind CoreGraphics.
+
+```swift
+let osm = URLTemplateTileSource(
+  template: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  projection: Projections.Mercator(),
+  attribution: "© OpenStreetMap contributors",
+  userAgent: "MyApp/1.0 (you@example.com)"
+)
+let tiled = GeoDrawer.TiledBaseMap(source: osm)  // .auto picks zoom from canvas
+
+GeoMap(
+  contents: [.tiledBaseMap(tiled)],
+  projection: Projections.Mercator()
+)
+```
+
+`StaticTileSource` covers the static-grid case (load all tiles into memory
+once); `URLTemplateTileSource` covers slippy-map services. Both are
+`Sendable` and safe to share across the renderer's parallel sampling
+tasks.
 
 ## Credits
 
