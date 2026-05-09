@@ -129,7 +129,7 @@ public struct GeoDrawer {
 
   public let size: Size
 
-  let zoomTo: Rect?
+  public let zoomTo: Rect?
 
   public let insets: EdgeInsets
 
