@@ -87,6 +87,73 @@ struct DanseijiTests {
   /// reference longitude shears the hand-tuned distortions away from the
   /// underlying geography, so they intentionally pin the reference at
   /// `(0, 0)` regardless of the constructor argument.
+  /// All six Danseiji variants must lay their edge polygon centred inside
+  /// the drawing canvas (modulo a few pixels of fp). Variants III–VI have
+  /// asymmetric edge polygons; before the `visibleBounds` fix the canvas
+  /// fitter assumed a symmetric `[-w/2, +w/2]` × `[-h/2, +h/2]` projection
+  /// rectangle and shoved them off-centre.
+  @Test(arguments: DanseijiVariant.allCases)
+  func edgePolygonIsCentredInCanvas(variant: DanseijiVariant) async throws {
+    let projection = variant.resolve()
+    guard case let .bezier(edge) = projection.mapBounds else { return }
+
+    let canvas = Size(width: 800, height: 400)
+    let translated = edge.map {
+      projection.translate($0, to: canvas, coordinateSystem: .topLeft)
+    }
+    let xs = translated.map(\.x), ys = translated.map(\.y)
+    let xMin = xs.min()!, xMax = xs.max()!, yMin = ys.min()!, yMax = ys.max()!
+
+    let leftMargin = xMin
+    let rightMargin = canvas.width - xMax
+    let topMargin = yMin
+    let bottomMargin = canvas.height - yMax
+
+    // Margins on opposing sides should match — the smaller dimension is
+    // centred when the other dimension is the binding axis.
+    #expect(abs(leftMargin - rightMargin) < 0.5,
+            "\(variant.rawValue): horizontal margins \(leftMargin) vs \(rightMargin) don't match")
+    #expect(abs(topMargin - bottomMargin) < 0.5,
+            "\(variant.rawValue): vertical margins \(topMargin) vs \(bottomMargin) don't match")
+
+    // Every edge vertex must land inside the canvas.
+    for p in translated {
+      #expect(p.x >= -0.5 && p.x <= canvas.width  + 0.5,
+              "\(variant.rawValue): edge vertex x=\(p.x) outside canvas")
+      #expect(p.y >= -0.5 && p.y <= canvas.height + 0.5,
+              "\(variant.rawValue): edge vertex y=\(p.y) outside canvas")
+    }
+  }
+
+  /// Edge insets must shrink the visible map by exactly that much on each
+  /// side, while keeping the projection's aspect ratio. Verifies the
+  /// fitting respects insets on every variant.
+  @Test(arguments: DanseijiVariant.allCases)
+  func edgeInsetsShrinkProportionally(variant: DanseijiVariant) async throws {
+    let projection = variant.resolve()
+    guard case let .bezier(edge) = projection.mapBounds else { return }
+
+    let canvas = Size(width: 800, height: 400)
+    let inset: Double = 30
+    let insets = EdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
+
+    let translated = edge.map {
+      projection.translate($0, to: canvas, insets: insets, coordinateSystem: .topLeft)
+    }
+    let xs = translated.map(\.x), ys = translated.map(\.y)
+    let xMin = xs.min()!, xMax = xs.max()!, yMin = ys.min()!, yMax = ys.max()!
+
+    // After insets, no vertex should land within the inset zone.
+    #expect(xMin >= inset - 0.5,
+            "\(variant.rawValue): xMin=\(xMin) inside left inset of \(inset)")
+    #expect(xMax <= canvas.width - inset + 0.5,
+            "\(variant.rawValue): xMax=\(xMax) inside right inset of \(inset)")
+    #expect(yMin >= inset - 0.5,
+            "\(variant.rawValue): yMin=\(yMin) inside top inset of \(inset)")
+    #expect(yMax <= canvas.height - inset + 0.5,
+            "\(variant.rawValue): yMax=\(yMax) inside bottom inset of \(inset)")
+  }
+
   @Test func vAndVIIgnoreReference() throws {
     let pinnedV = try #require(
       Projections.DanseijiV(reference: .init(x: .pi / 4, y: .pi / 6))

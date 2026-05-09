@@ -35,6 +35,8 @@ extension Projections {
     public let mapBounds: MapBounds
     private let data: DanseijiData
 
+    public var visibleBounds: Rect { data.edgeBounds }
+
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
     }
@@ -58,6 +60,8 @@ extension Projections {
     public let projectionSize: Size
     public let mapBounds: MapBounds
     private let data: DanseijiData
+
+    public var visibleBounds: Rect { data.edgeBounds }
 
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
@@ -83,6 +87,8 @@ extension Projections {
     public let mapBounds: MapBounds
     private let data: DanseijiData
 
+    public var visibleBounds: Rect { data.edgeBounds }
+
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
     }
@@ -106,6 +112,8 @@ extension Projections {
     public let projectionSize: Size
     public let mapBounds: MapBounds
     private let data: DanseijiData
+
+    public var visibleBounds: Rect { data.edgeBounds }
 
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
@@ -137,6 +145,8 @@ extension Projections {
     public let mapBounds: MapBounds
     private let data: DanseijiData
 
+    public var visibleBounds: Rect { data.edgeBounds }
+
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
     }
@@ -166,6 +176,8 @@ extension Projections {
     public let projectionSize: Size
     public let mapBounds: MapBounds
     private let data: DanseijiData
+
+    public var visibleBounds: Rect { data.edgeBounds }
 
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
