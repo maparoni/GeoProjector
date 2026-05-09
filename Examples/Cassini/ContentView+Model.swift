@@ -121,6 +121,15 @@ extension ContentView {
           layer.contents.map { $0.settingColor(layer.color) }
         }
     }
+
+    /// The same projected `Rect` that `GeoDrawer` (and therefore `GeoMap`) uses for the
+    /// current `zoomTo` bounding box, suitable for passing to `Projection.coordinate(at:...)`.
+    var projectedZoomTo: Rect? {
+      guard let box = zoomTo?.0 else { return nil }
+      // Size doesn't influence the computed zoom rect — pick anything.
+      let drawer = GeoDrawer(size: .init(width: 100, height: 100), projection: projection, zoomTo: box, insets: insets)
+      return drawer.zoomTo
+    }
     
     func addLayer(_ data: Data, preferredName: String?) throws {
       let geoJSON = try GeoJSON(data: data)

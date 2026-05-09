@@ -54,6 +54,23 @@ extension Projections {
         y: k * (cos(reference.y) * sin(point.y) - sin(reference.y) * cos(point.y) * cos(point.x - reference.x))
       )
     }
+
+    public func inverse(_ point: Point) -> Point? {
+      // For the Azimuthal Equidistant projection, the planar radius equals the
+      // angular distance c, so c = rho directly (no asin like in Orthographic).
+      let X = point.x, Y = point.y
+      let rho = sqrt(X*X + Y*Y)
+      guard rho <= .pi + 1e-12 else { return nil }
+      if rho < 1e-15 { return reference }
+      let c = rho
+      let sinC = sin(c), cosC = cos(c)
+      let phi = asin(cosC * sin(reference.y) + (Y * sinC * cos(reference.y)) / rho)
+      let lam = reference.x + atan2(
+        X * sinC,
+        rho * cos(reference.y) * cosC - Y * sin(reference.y) * sinC
+      )
+      return .init(x: Projections.wrapLongitude(lam), y: phi)
+    }
     
     private func k(_ point: Point) -> Double {
       let c = self.c(point)

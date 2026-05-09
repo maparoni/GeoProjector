@@ -70,7 +70,13 @@ extension Projections {
         y: adjusted.y
       )
     }
-    
+
+    public func inverse(_ point: Point) -> Point? {
+      guard mapBounds.contains(point, projectionSize: projectionSize) else { return nil }
+      let lambda = Projections.wrapLongitude(point.x / cos(phiOne) + reference.x)
+      return .init(x: lambda, y: point.y)
+    }
+
   }
   
   /// https://en.wikipedia.org/wiki/Cassini_projection
@@ -98,6 +104,14 @@ extension Projections {
         y: atan2(sin(point.phi), cos(point.phi) * cos(point.lambda))
       )
     }
+
+    public func inverse(_ point: Point) -> Point? {
+      guard mapBounds.contains(point, projectionSize: projectionSize) else { return nil }
+      let X = point.x, Y = point.y
+      let phi = asin(sin(Y) * cos(X))
+      let lam = atan2(tan(X), cos(Y))
+      return .init(x: lam, y: phi)
+    }
   }
   
   /// Web standard
@@ -123,11 +137,18 @@ extension Projections {
     public func project(_ point: Point) -> Point? {
       var adjusted = Projections.adjust(point, reference: reference)
       adjusted.y = min(Self.maxLat, max(Self.maxLat * -1, adjusted.y))
-      
+
       return .init(
         x: adjusted.x,
         y: log(tan(.pi / 4 + adjusted.y / 2))
       )
+    }
+
+    public func inverse(_ point: Point) -> Point? {
+      guard mapBounds.contains(point, projectionSize: projectionSize) else { return nil }
+      let phi = 2 * atan(exp(point.y)) - .pi / 2
+      let lam = Projections.wrapLongitude(point.x + reference.x)
+      return .init(x: lam, y: phi)
     }
   }
 
@@ -156,6 +177,14 @@ extension Projections {
         x: adjusted.x,
         y: 2 * sin(adjusted.y)
       )
+    }
+
+    public func inverse(_ point: Point) -> Point? {
+      guard mapBounds.contains(point, projectionSize: projectionSize) else { return nil }
+      let yClamped = min(2.0, max(-2.0, point.y))
+      let phi = asin(yClamped / 2)
+      let lam = Projections.wrapLongitude(point.x + reference.x)
+      return .init(x: lam, y: phi)
     }
   }
 

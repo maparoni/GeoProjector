@@ -39,6 +39,15 @@ public protocol Projection {
   /// ``projectionSize``.
   func project(_ point: Point) -> Point?
 
+  /// Inverse of ``project(_:)``. Maps a projected point (the output of ``project(_:)``,
+  /// in the projection's internal radian coordinate system) back to a geographic
+  /// coordinate in radians: x (longitude) in `-pi...pi`, y (latitude) in `(-pi/2)...(pi/2)`.
+  ///
+  /// Returns `nil` if the input lies outside the projection's image (e.g. outside the
+  /// unit ellipse for Orthographic, outside the bezier outline for EqualEarth/NaturalEarth,
+  /// or beyond the rectangle for the cylindricals).
+  func inverse(_ point: Point) -> Point?
+
   func willWrap(_ point: Point) -> Bool
 
   /// The maximum width/height that the projection uses, in radians.
@@ -141,6 +150,97 @@ extension Projection {
     return .init(
       x: canvasOffset.x + normalized.x * canvasSize.width,
       y: canvasOffset.y + normalized.y * canvasSize.height
+    )
+  }
+
+  /// Inverse of ``translate(_:to:zoomTo:insets:coordinateSystem:)``: turns a screen-space
+  /// point (e.g. the location of a click) back into projected radians.
+  public func untranslate(_ point: Point, from size: Size, zoomTo: Rect? = nil, insets: EdgeInsets = .zero, coordinateSystem: CoordinateSystem) -> Point {
+    let availableSize = Size(
+      width: size.width - insets.left - insets.right,
+      height: size.height - insets.top - insets.bottom
+    )
+
+    let xInAvailable = point.x - insets.left
+    let yInAvailable: Double
+    switch coordinateSystem {
+    case .bottomLeft:
+      yInAvailable = point.y - insets.bottom
+    case .topLeft:
+      yInAvailable = availableSize.height - (point.y - insets.top)
+    }
+    let pointInAvailable = Point(x: xInAvailable, y: yInAvailable)
+
+    if let zoomTo, zoomTo.size != .zero {
+      return zoomedUntranslate(pointInAvailable, zoomTo: zoomTo, from: availableSize)
+    } else {
+      return simpleUntranslate(pointInAvailable, from: availableSize)
+    }
+  }
+
+  /// Inverse of ``point(for:size:zoomTo:insets:coordinateSystem:)``.
+  ///
+  /// Given a screen-space point (e.g. a click), returns the geographic position in
+  /// **degrees**, or `nil` if the click is outside the projection's image (e.g. clicking
+  /// off the globe of an Orthographic map, or off the bezier outline of EqualEarth).
+  public func coordinate(at point: Point, size: Size, zoomTo: Rect? = nil, insets: EdgeInsets = .zero, coordinateSystem: CoordinateSystem) -> GeoJSON.Position? {
+    let projected = untranslate(point, from: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
+    guard let geoRad = inverse(projected) else { return nil }
+    return .init(latitude: geoRad.y.toDegrees(), longitude: geoRad.x.toDegrees())
+  }
+
+  private func simpleUntranslate(_ point: Point, from size: Size) -> Point {
+    let myRatio = projectionSize.aspectRatio
+    let targetRatio = size.aspectRatio
+
+    let canvasSize: Size
+    if myRatio > targetRatio {
+      canvasSize = .init(width: size.width, height: size.width / myRatio)
+    } else {
+      canvasSize = .init(width: size.height * myRatio, height: size.height)
+    }
+
+    let canvasOffset = Point(
+      x: (size.width - canvasSize.width) / 2,
+      y: (size.height - canvasSize.height) / 2
+    )
+
+    let normalized = Point(
+      x: (point.x - canvasOffset.x) / canvasSize.width,
+      y: (point.y - canvasOffset.y) / canvasSize.height
+    )
+
+    return .init(
+      x: normalized.x * projectionSize.width  - projectionSize.width  / 2,
+      y: normalized.y * projectionSize.height - projectionSize.height / 2
+    )
+  }
+
+  private func zoomedUntranslate(_ point: Point, zoomTo: Rect, from size: Size) -> Point {
+    assert(zoomTo.size != .zero)
+    let myRatio = zoomTo.size.aspectRatio
+    let targetRatio = size.aspectRatio
+
+    let canvasSize: Size
+    if myRatio > targetRatio {
+      canvasSize = .init(width: size.width, height: size.width / myRatio)
+    } else {
+      canvasSize = .init(width: size.height * myRatio, height: size.height)
+    }
+
+    let canvasOffset = Point(
+      x: (size.width - canvasSize.width) / 2,
+      y: (size.height - canvasSize.height) / 2
+    )
+
+    let normalized = Point(
+      x: (point.x - canvasOffset.x) / canvasSize.width,
+      y: (point.y - canvasOffset.y) / canvasSize.height
+    )
+
+    return .init(
+      x: normalized.x * zoomTo.size.width  + zoomTo.origin.x,
+      y: normalized.y * zoomTo.size.height + zoomTo.origin.y
     )
   }
 
