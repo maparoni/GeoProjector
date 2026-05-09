@@ -9,8 +9,13 @@
 
 import SwiftUI
 
+#if os(macOS)
+import AppKit
+#endif
+
 import GeoDrawer
 import GeoJSONKit
+import GeoProjector
 
 struct ContentView: View {
   @ObservedObject var model: Model
@@ -27,28 +32,116 @@ struct ContentView: View {
 #if os(macOS)
 struct ContentView_macOS: View {
   @ObservedObject var model: ContentView.Model
-  
+
   @Environment(\.colorScheme) var colorScheme
-  
+
+  @State private var hoverCoord: GeoJSON.Position?
+  @State private var lockedCoord: GeoJSON.Position?
+
   var body: some View {
     HSplitView {
       OptionsView(model: model)
         .frame(maxWidth: 300)
-      
-      VStack {
-        GeoMap(
-          contents: model.visibleContents,
-          projection: model.projection,
-          zoomTo: model.zoomTo?.0,
-          insets: model.insets,
-          mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
-          mapOutline: colorScheme == .dark ? .white : .black
+
+      VStack(spacing: 0) {
+        GeometryReader { geo in
+          GeoMap(
+            contents: model.visibleContents,
+            projection: model.projection,
+            zoomTo: model.zoomTo?.0,
+            insets: model.insets,
+            mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
+            mapOutline: colorScheme == .dark ? .white : .black
+          )
+          .onContinuousHover { phase in
+            switch phase {
+            case .active(let location):
+              hoverCoord = coordinate(at: location, in: geo.size)
+            case .ended:
+              hoverCoord = nil
+            }
+          }
+          .onTapGesture(coordinateSpace: .local) { location in
+            if let coord = coordinate(at: location, in: geo.size) {
+              lockedCoord = coord
+            }
+          }
+        }
+        .padding()
+
+        MapStatusBar(
+          live: hoverCoord,
+          locked: lockedCoord,
+          onCopy: copyLockedCoord,
+          onDiscard: { lockedCoord = nil }
         )
       }
-      .padding()
     }
-    
   }
+
+  private func coordinate(at location: CGPoint, in size: CGSize) -> GeoJSON.Position? {
+    model.projection.coordinate(
+      at: .init(x: location.x, y: location.y),
+      size: .init(width: size.width, height: size.height),
+      zoomTo: model.projectedZoomTo,
+      insets: model.insets,
+      coordinateSystem: .topLeft
+    )
+  }
+
+  private func copyLockedCoord() {
+    guard let lockedCoord else { return }
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(formatCoord(lockedCoord), forType: .string)
+    self.lockedCoord = nil
+  }
+}
+
+struct MapStatusBar: View {
+  let live: GeoJSON.Position?
+  let locked: GeoJSON.Position?
+  let onCopy: () -> Void
+  let onDiscard: () -> Void
+
+  var body: some View {
+    HStack(spacing: 8) {
+      if let locked {
+        Image(systemName: "mappin.circle.fill")
+          .foregroundStyle(.tint)
+        Text(formatCoord(locked))
+          .font(.system(.body, design: .monospaced))
+        Spacer()
+        Button("Copy", action: onCopy)
+          .keyboardShortcut("c", modifiers: [.command])
+        Button("Discard", role: .cancel, action: onDiscard)
+          .keyboardShortcut(.escape, modifiers: [])
+      } else if let live {
+        Image(systemName: "mappin.and.ellipse")
+          .foregroundStyle(.secondary)
+        Text(formatCoord(live))
+          .font(.system(.body, design: .monospaced))
+          .foregroundStyle(.secondary)
+        Spacer()
+      } else {
+        Image(systemName: "mappin.slash")
+          .foregroundStyle(.tertiary)
+        Text("Hover over the map to see coordinates")
+          .foregroundStyle(.secondary)
+        Spacer()
+      }
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 6)
+    .frame(maxWidth: .infinity, minHeight: 30)
+    .background(.bar)
+    .overlay(Divider(), alignment: .top)
+  }
+}
+
+private func formatCoord(_ p: GeoJSON.Position) -> String {
+  let latHem = p.latitude  >= 0 ? "N" : "S"
+  let lonHem = p.longitude >= 0 ? "E" : "W"
+  return String(format: "%7.4f° %@   %8.4f° %@", abs(p.latitude), latHem, abs(p.longitude), lonHem)
 }
 
 #else
