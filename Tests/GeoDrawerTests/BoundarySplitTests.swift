@@ -419,3 +419,72 @@ struct BoundarySplitTests {
 }
 
 #endif
+
+// MARK: - Performance probes (manual; not part of regular suite)
+
+// Run with PERF_BENCH=1 swift test -c release --filter PerfBench
+struct PerfBench {
+  @Test func benchEqualEarth() throws {
+    let projection = Projections.EqualEarth(reference: .init(latitude: 0, longitude: 90))
+    let drawer = GeoDrawer(size: .init(width: 800, height: 400), projection: projection)
+    let world = try GeoDrawer.Content.world()
+    var polygons: [GeoJSON.Polygon] = []
+    func absorb(_ geo: GeoJSON.Geometry) {
+      if case .polygon(let p) = geo { polygons.append(p) }
+    }
+    func absorb(_ obj: GeoJSON.GeometryObject) {
+      switch obj {
+      case .single(let g): absorb(g)
+      case .multi(let gs): gs.forEach(absorb)
+      case .collection(let os): os.forEach(absorb)
+      }
+    }
+    switch world.object {
+    case .geometry(let g): absorb(g)
+    case .feature(let f): absorb(f.geometry)
+    case .featureCollection(let fs): fs.forEach { absorb($0.geometry) }
+    }
+    let start = Date()
+    var totalVertices = 0
+    for _ in 0..<5 {
+      for polygon in polygons {
+        let pieces = drawer.convertPolygon(polygon.exterior.positions, coordinateSystem: .topLeft)
+        for piece in pieces { totalVertices += piece.count }
+      }
+    }
+    let elapsed = -start.timeIntervalSinceNow
+    print("EqualEarth: \(polygons.count) polygons * 5 reps in \(String(format: "%.3f", elapsed * 1000))ms (\(totalVertices) total verts)")
+  }
+
+  @Test func benchOrthographic() throws {
+    let projection = Projections.Orthographic(reference: .init(latitude: 0, longitude: 0))
+    let drawer = GeoDrawer(size: .init(width: 800, height: 400), projection: projection)
+    let world = try GeoDrawer.Content.world()
+    var polygons: [GeoJSON.Polygon] = []
+    func absorb(_ geo: GeoJSON.Geometry) {
+      if case .polygon(let p) = geo { polygons.append(p) }
+    }
+    func absorb(_ obj: GeoJSON.GeometryObject) {
+      switch obj {
+      case .single(let g): absorb(g)
+      case .multi(let gs): gs.forEach(absorb)
+      case .collection(let os): os.forEach(absorb)
+      }
+    }
+    switch world.object {
+    case .geometry(let g): absorb(g)
+    case .feature(let f): absorb(f.geometry)
+    case .featureCollection(let fs): fs.forEach { absorb($0.geometry) }
+    }
+    let start = Date()
+    var totalVertices = 0
+    for _ in 0..<5 {
+      for polygon in polygons {
+        let pieces = drawer.convertPolygon(polygon.exterior.positions, coordinateSystem: .topLeft)
+        for piece in pieces { totalVertices += piece.count }
+      }
+    }
+    let elapsed = -start.timeIntervalSinceNow
+    print("Orthographic: \(polygons.count) polygons * 5 reps in \(String(format: "%.3f", elapsed * 1000))ms (\(totalVertices) total verts)")
+  }
+}

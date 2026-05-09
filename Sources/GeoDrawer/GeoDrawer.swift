@@ -285,22 +285,38 @@ extension GeoDrawer {
   }
 
   static func projectLine(_ positions: [GeoJSON.Position], projection: Projection) -> [(Point, Point?)] {
-
-    // 1. Turn degrees into radians
+    // 1. Turn degrees into radians once.
     let unprojected = positions.map { Point(x: $0.longitude.toRadians(), y: $0.latitude.toRadians()) }
+    guard !unprojected.isEmpty else { return [] }
 
-    // 2. Project pairs and interpolate between them, which is necessary if
-    //    we can't just draw a line between the two projected points as the
-    //    projection itself should be curved or it might not cover both
-    //    endpoints.
-    let projected = zip(unprojected.dropLast(), unprojected.dropFirst())
-      .reduce(into: [(Point, Point?)]()) { acc, next in
-        acc.append((next.0, projection.project(next.0)))
-        acc.append(contentsOf: Interpolator.interpolate(from: next.0, to: next.1, maxDiff: 0.0025, projector: projection.project(_:)))
-        acc.append((next.1, projection.project(next.1)))
-      }
+    // 2. Project each input vertex once. Endpoints between consecutive pairs
+    //    are shared, so previously this list re-projected every interior
+    //    vertex twice.
+    let projectedVertices: [Point?] = unprojected.map { projection.project($0) }
 
-    return projected
+    // 3. Walk consecutive pairs, interpolating between them. Curved
+    //    projections need the interpolation, otherwise the straight-line
+    //    drawing between projected endpoints loses fidelity.
+    var output: [(Point, Point?)] = []
+    output.reserveCapacity(unprojected.count * 2)
+    let maxDiff: Double = 0.0025
+    let diffSquared = maxDiff * maxDiff
+    for i in 0..<(unprojected.count - 1) {
+      let a = unprojected[i]
+      let b = unprojected[i + 1]
+      let aProj = projectedVertices[i]
+      let bProj = projectedVertices[i + 1]
+      output.append((a, aProj))
+      Interpolator.interpolateInto(
+        from: a, aProj: aProj,
+        to: b, bProj: bProj,
+        diffSquared: diffSquared,
+        projector: projection.project(_:),
+        output: &output
+      )
+    }
+    output.append((unprojected.last!, projectedVertices.last!))
+    return output
   }
 
   private static func convertLine(_ positions: [GeoJSON.Position], projection: Projection?, size: Size, zoomTo: Rect?, insets: EdgeInsets, coordinateSystem: CoordinateSystem, converter: (GeoJSON.Position, CoordinateSystem) -> Point?, close: Bool) -> [[Point]] {

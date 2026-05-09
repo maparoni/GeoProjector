@@ -147,20 +147,59 @@ extension MapBounds {
     }
   }
 
-  /// Standard ray-casting point-in-polygon test. Vertices are accepted as inside.
-  static func pointInPolygon(_ p: Point, polygon: [Point]) -> Bool {
-    guard polygon.count >= 3 else { return false }
-    var inside = false
-    var j = polygon.count - 1
-    for i in 0..<polygon.count {
-      let pi = polygon[i], pj = polygon[j]
-      if pi.x == p.x && pi.y == p.y { return true }
-      let intersects = ((pi.y > p.y) != (pj.y > p.y))
-        && (p.x < (pj.x - pi.x) * (p.y - pi.y) / (pj.y - pi.y) + pi.x)
-      if intersects { inside.toggle() }
-      j = i
+  /// Returns `true` if the polygon's vertices wind in a single direction —
+  /// i.e. all consecutive cross products have the same sign. Used by the
+  /// boundary splitter to skip the multi-crossing detection on convex
+  /// outlines, since a straight segment between two interior points can't
+  /// exit a convex polygon.
+  public static func isConvex(_ polygon: [Point]) -> Bool {
+    let count = polygon.count
+    guard count >= 3 else { return true }
+    return polygon.withUnsafeBufferPointer { buf in
+      var sign: Double = 0
+      for i in 0..<count {
+        let a = buf[i]
+        let b = buf[(i + 1) % count]
+        let c = buf[(i + 2) % count]
+        let cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x)
+        if cross != 0 {
+          if sign == 0 {
+            sign = cross
+          } else if (sign > 0) != (cross > 0) {
+            return false
+          }
+        }
+      }
+      return true
     }
-    return inside
+  }
+
+  /// Standard ray-casting point-in-polygon test. Vertices are accepted as inside.
+  ///
+  /// Hot path: this is called once per projected vertex by `boundarySplit`
+  /// for `bezier` bounds. We use `withUnsafeBufferPointer` to drop the array
+  /// bounds checks (significant in Debug builds) and lift loop invariants
+  /// out of the inner loop.
+  static func pointInPolygon(_ p: Point, polygon: [Point]) -> Bool {
+    let count = polygon.count
+    guard count >= 3 else { return false }
+    return polygon.withUnsafeBufferPointer { buf -> Bool in
+      let px = p.x
+      let py = p.y
+      var inside = false
+      var j = count - 1
+      for i in 0..<count {
+        let pi = buf[i]
+        let pj = buf[j]
+        if pi.x == px, pi.y == py { return true }
+        if (pi.y > py) != (pj.y > py) {
+          let xCross = (pj.x - pi.x) * (py - pi.y) / (pj.y - pi.y) + pi.x
+          if px < xCross { inside.toggle() }
+        }
+        j = i
+      }
+      return inside
+    }
   }
 
   // MARK: - Geometry helpers

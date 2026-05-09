@@ -38,6 +38,19 @@ extension GeoDrawer {
 
     var prev: (proj: Point?, inside: Bool)? = nil
 
+    // Pre-flight: only `bezier` outlines can have concave regions that
+    // require the (true, true) multi-crossing test. Rectangle and ellipse
+    // are convex by construction; skipping the per-pair `allIntersections`
+    // call there saves a hot-path iteration over the whole boundary edge
+    // list. For `bezier`, run the convexity check once for the whole call.
+    let needsMultiCrossingCheck: Bool
+    switch mapBounds {
+    case .rectangle, .ellipse:
+      needsMultiCrossingCheck = false
+    case .bezier(let pts):
+      needsMultiCrossingCheck = !MapBounds.isConvex(pts)
+    }
+
     for (_, proj) in projected {
       let inside: Bool
       if let p = proj {
@@ -74,7 +87,11 @@ extension GeoDrawer {
             // Both endpoints inside, but the straight line between them might
             // still cross a concave region of the boundary (notches in the
             // bezier outline). Look for paired exit/entry crossings and split.
-            if let prevP = prev.proj, let p = proj {
+            // Skip the search entirely for convex outlines — the segment
+            // can't exit and re-enter without one of its endpoints being
+            // outside.
+            if needsMultiCrossingCheck,
+               let prevP = prev.proj, let p = proj {
               let crossings = mapBounds.allIntersections(from: prevP, to: p, projectionSize: projectionSize)
               if crossings.count >= 2 {
                 var i = 0

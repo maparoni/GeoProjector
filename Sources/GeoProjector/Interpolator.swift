@@ -22,37 +22,90 @@ public enum Interpolator {
   ///   - projector: Projector handler that should return a projected point for an unprojected point
   /// - Returns: List of (unprojected, projected) pairs to add in between a and b
   public static func interpolate(from a: Point, to b: Point, maxDiff: Double, projector: (Point) -> Point?) -> [(Point, Point)] {
-    let pointDistance = a.distanceSquared(to: b)
-    let diffSquared = maxDiff * maxDiff
-    guard pointDistance > diffSquared else { return [] }
-    
-    let c = a.halfway(to: b)
-    
-    let a_proj = projector(a)
-    let b_proj = projector(b)
-    let c_proj = projector(c)
-    if let a_proj, let b_proj, let c_proj {
-      let c_triv = a_proj.halfway(to: b_proj)
-      let distanceSquared = c_proj.distanceSquared(to: c_triv)
-      guard distanceSquared > diffSquared else { return [] }
-    }
-    
-    let lefty = interpolate(from: a, to: c, maxDiff: maxDiff, projector: projector)
-    let righty = interpolate(from: c, to: b, maxDiff: maxDiff, projector: projector)
-    let middy = [c_proj].compactMap { $0 }.map { (c, $0) }
-    return lefty + middy + righty
+    var output: [(Point, Point)] = []
+    legacyInterpolate(
+      from: a, aProj: projector(a),
+      to: b, bProj: projector(b),
+      diffSquared: maxDiff * maxDiff,
+      projector: projector,
+      output: &output
+    )
+    return output
   }
-  
+
+  /// Internal recursion that reuses already-computed endpoint projections so
+  /// each unprojected point gets projected once, not three times per
+  /// recursion level. The output array carries `(unprojected, projected)`
+  /// pairs and is appended to in left-to-right order.
+  ///
+  /// Public so that `projectLine`-style callers can pre-project the polygon's
+  /// vertices once (in a flat sweep) and feed the projections in here. The
+  /// public `interpolate(from:to:maxDiff:projector:)` wrapper is convenient
+  /// for callers without that bookkeeping.
+  public static func interpolateInto(
+    from a: Point, aProj: Point?,
+    to b: Point, bProj: Point?,
+    diffSquared: Double,
+    projector: (Point) -> Point?,
+    output: inout [(Point, Point?)]
+  ) {
+    if a.distanceSquared(to: b) <= diffSquared { return }
+
+    let c = a.halfway(to: b)
+    let cProj = projector(c)
+
+    if let aProj, let bProj, let cProj {
+      let cTriv = aProj.halfway(to: bProj)
+      if cProj.distanceSquared(to: cTriv) <= diffSquared { return }
+    }
+
+    interpolateInto(from: a, aProj: aProj, to: c, bProj: cProj,
+                    diffSquared: diffSquared, projector: projector, output: &output)
+    output.append((c, cProj))
+    interpolateInto(from: c, aProj: cProj, to: b, bProj: bProj,
+                    diffSquared: diffSquared, projector: projector, output: &output)
+  }
+
+  // Legacy 4-arg wrapper kept for compatibility (used by projection setup
+  // for bezier outline generation, etc.).
+  private static func legacyInterpolate(
+    from a: Point, aProj: Point?,
+    to b: Point, bProj: Point?,
+    diffSquared: Double,
+    projector: (Point) -> Point?,
+    output: inout [(Point, Point)]
+  ) {
+    if a.distanceSquared(to: b) <= diffSquared { return }
+
+    let c = a.halfway(to: b)
+    let cProj = projector(c)
+
+    if let aProj, let bProj, let cProj {
+      let cTriv = aProj.halfway(to: bProj)
+      if cProj.distanceSquared(to: cTriv) <= diffSquared { return }
+    }
+
+    legacyInterpolate(from: a, aProj: aProj, to: c, bProj: cProj,
+                      diffSquared: diffSquared, projector: projector, output: &output)
+    if let cProj { output.append((c, cProj)) }
+    legacyInterpolate(from: c, aProj: cProj, to: b, bProj: bProj,
+                      diffSquared: diffSquared, projector: projector, output: &output)
+  }
+
 }
 
 extension Point {
-  
+
+  @inline(__always)
   func halfway(to b: Point) -> Point {
-    Point(x: (x + b.x) / 2, y: (y + b.y) / 2)
+    Point(x: (x + b.x) * 0.5, y: (y + b.y) * 0.5)
   }
-  
+
+  @inline(__always)
   func distanceSquared(to b: Point) -> Double {
-    pow(b.x - x, 2) + pow(b.y - y, 2)
+    let dx = b.x - x
+    let dy = b.y - y
+    return dx * dx + dy * dy
   }
-  
+
 }
