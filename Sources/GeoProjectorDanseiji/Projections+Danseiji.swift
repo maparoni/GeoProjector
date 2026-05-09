@@ -42,6 +42,10 @@ extension Projections {
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
     }
+
+    public func inverse(_ point: Point) -> Point? {
+      DanseijiCore.inverse(point, data: data, reference: reference)
+    }
   }
 
   /// Danseiji II — optimised giving more weight to shapes than sizes.
@@ -65,6 +69,10 @@ extension Projections {
 
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
+    }
+
+    public func inverse(_ point: Point) -> Point? {
+      DanseijiCore.inverse(point, data: data, reference: reference)
     }
   }
 
@@ -90,6 +98,10 @@ extension Projections {
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
     }
+
+    public func inverse(_ point: Point) -> Point? {
+      DanseijiCore.inverse(point, data: data, reference: reference)
+    }
   }
 
   /// Danseiji IV — optimised to display landmasses accurately and uninterrupted.
@@ -113,6 +125,10 @@ extension Projections {
 
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
+    }
+
+    public func inverse(_ point: Point) -> Point? {
+      DanseijiCore.inverse(point, data: data, reference: reference)
     }
   }
 
@@ -138,6 +154,10 @@ extension Projections {
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
     }
+
+    public func inverse(_ point: Point) -> Point? {
+      DanseijiCore.inverse(point, data: data, reference: reference)
+    }
   }
 
   /// Danseiji VI — compromise where both physical area and population affect size.
@@ -161,6 +181,10 @@ extension Projections {
 
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
+    }
+
+    public func inverse(_ point: Point) -> Point? {
+      DanseijiCore.inverse(point, data: data, reference: reference)
     }
   }
 

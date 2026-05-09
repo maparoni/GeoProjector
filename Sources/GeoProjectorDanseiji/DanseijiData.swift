@@ -8,7 +8,7 @@
 //      <vertexCount> rows of: x,y                       (planar vertex, radians)
 //      <cellRows*cellCols> rows of: shape,idx0,idx1,... (4 or 6 vertex indices)
 //      <edgeCount> rows of: idx                         (boundary polygon)
-//      <pixelRows*pixelCols> rows of: phi,lam           (inverse lookup, ignored)
+//      <pixelRows*pixelCols> rows of: phi,lam           (inverse lookup)
 //
 //  Vendored verbatim from https://github.com/jkunimune/Map-Projections (MIT).
 //
@@ -22,8 +22,21 @@ struct DanseijiData {
     let vertices: [Point]
   }
 
+  /// Spherical coordinate (`phi` = latitude, `lam` = longitude) sampled at one
+  /// node of the inverse-lookup grid.
+  struct PixelSample {
+    let phi: Double
+    let lam: Double
+  }
+
   let cells: [[Cell]]
   let edge: [Point]
+  /// Inverse-lookup samples laid out as `[row][col]`, with `row 0` along the
+  /// top of the projected image (largest `y`) and `row last` along the bottom.
+  let pixels: [[PixelSample]]
+  /// Tight bounding box of the edge polygon. Used by `inverse` to map projected
+  /// (x, y) back to (col, row) in the pixel grid.
+  let edgeBounds: Rect
   let projectionSize: Size
 }
 
@@ -76,7 +89,9 @@ enum DanseijiLoader {
           let vertexCount = Int(headerFields[0]),
           let cellRows = Int(headerFields[1]),
           let cellCols = Int(headerFields[2]),
-          let edgeCount = Int(headerFields[3]) else {
+          let edgeCount = Int(headerFields[3]),
+          let pixelRows = Int(headerFields[4]),
+          let pixelCols = Int(headerFields[5]) else {
       throw DanseijiLoadError.malformed("bad header in \(resource): \(headerLine)")
     }
 
@@ -134,19 +149,47 @@ enum DanseijiLoader {
       edge.append(vertices[idx])
     }
 
-    // The remaining "pixels" rows are an inverse-projection lookup we don't
-    // expose, so they're left unread.
-
-    var maxAbsX: Double = 0
-    var maxAbsY: Double = 0
-    for p in edge {
-      maxAbsX = max(maxAbsX, abs(p.x))
-      maxAbsY = max(maxAbsY, abs(p.y))
+    var pixels: [[DanseijiData.PixelSample]] = []
+    pixels.reserveCapacity(pixelRows)
+    for _ in 0..<pixelRows {
+      var row: [DanseijiData.PixelSample] = []
+      row.reserveCapacity(pixelCols)
+      for _ in 0..<pixelCols {
+        guard let line = iterator.next() else {
+          throw DanseijiLoadError.malformed("truncated pixel section in \(resource)")
+        }
+        let parts = line.split(separator: ",").map { String($0) }
+        guard parts.count >= 2,
+              let phi = Double(parts[0]),
+              let lam = Double(parts[1]) else {
+          throw DanseijiLoadError.malformed("bad pixel line in \(resource): \(line)")
+        }
+        row.append(.init(phi: phi, lam: lam))
+      }
+      pixels.append(row)
     }
+
+    var xMin = Double.infinity
+    var xMax = -Double.infinity
+    var yMin = Double.infinity
+    var yMax = -Double.infinity
+    for p in edge {
+      if p.x < xMin { xMin = p.x }
+      if p.x > xMax { xMax = p.x }
+      if p.y < yMin { yMin = p.y }
+      if p.y > yMax { yMax = p.y }
+    }
+    let maxAbsX = max(abs(xMin), abs(xMax))
+    let maxAbsY = max(abs(yMin), abs(yMax))
 
     return DanseijiData(
       cells: cells,
       edge: edge,
+      pixels: pixels,
+      edgeBounds: Rect(
+        origin: Point(x: xMin, y: yMin),
+        size: Size(width: xMax - xMin, height: yMax - yMin)
+      ),
       projectionSize: Size(width: 2 * maxAbsX, height: 2 * maxAbsY)
     )
   }

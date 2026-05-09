@@ -81,6 +81,53 @@ struct DanseijiTests {
     #expect(abs(shifted.x - centred.x) < 0.1)
     #expect(abs(shifted.y - centred.y) < 0.1)
   }
+
+  @Test(arguments: DanseijiVariant.allCases)
+  func inverseRoundTripsCoarseGrid(variant: DanseijiVariant) async throws {
+    let projection = variant.resolve()
+
+    // Bilinear interpolation in a ~120×200 grid plus barycentric forward
+    // interpolation gives ~1° round-trip accuracy, hence the loose tolerance.
+    // Skip the polar caps where the inverse pixel grid degenerates and the
+    // poles' longitude is undefined.
+    let tolerance = 0.05  // ~3°, comfortable for a mesh-interpolated projection
+    var rejections = 0
+    var checks = 0
+    var lat = -70.0
+    while lat <= 70.0 {
+      var lon = -160.0
+      while lon <= 160.0 {
+        let geo = Point(x: lon * .pi / 180, y: lat * .pi / 180)
+        guard let projected = projection.project(geo) else {
+          lon += 40; continue
+        }
+        guard let recovered = projection.inverse(projected) else {
+          rejections += 1; lon += 40; continue
+        }
+        var dx = recovered.x - geo.x
+        while dx >  .pi { dx -= 2 * .pi }
+        while dx < -.pi { dx += 2 * .pi }
+        let dy = recovered.y - geo.y
+        #expect(abs(dx) < tolerance, "\(variant.rawValue): lon mismatch at (\(lat),\(lon)): dx=\(dx)")
+        #expect(abs(dy) < tolerance, "\(variant.rawValue): lat mismatch at (\(lat),\(lon)): dy=\(dy)")
+        checks += 1
+        lon += 40
+      }
+      lat += 20
+    }
+    #expect(checks > 0, "\(variant.rawValue): expected at least some round-trips, got \(rejections) rejections")
+  }
+
+  @Test func inverseRejectsPointsOutsideEdge() async throws {
+    let projection = Projections.DanseijiIV()
+    let halfW = projection.projectionSize.width / 2
+    let halfH = projection.projectionSize.height / 2
+    // Far corner of the bounding rect — Danseiji IV is interrupted, so corners
+    // sit well outside the edge polygon.
+    #expect(projection.inverse(.init(x: halfW * 0.99, y: halfH * 0.99)) == nil)
+    // Centre of the projection is always inside.
+    #expect(projection.inverse(.init(x: 0, y: 0)) != nil)
+  }
 }
 
 #endif
