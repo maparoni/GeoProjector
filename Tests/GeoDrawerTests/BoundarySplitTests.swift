@@ -418,11 +418,9 @@ struct BoundarySplitTests {
   }
 }
 
-#endif
-
 // MARK: - Performance probes (manual; not part of regular suite)
 
-// Run with PERF_BENCH=1 swift test -c release --filter PerfBench
+// Run with: swift test -c release --filter PerfBench
 struct PerfBench {
   @Test func benchEqualEarth() throws {
     let projection = Projections.EqualEarth(reference: .init(latitude: 0, longitude: 90))
@@ -488,3 +486,5 @@ struct PerfBench {
     print("Orthographic: \(polygons.count) polygons * 5 reps in \(String(format: "%.3f", elapsed * 1000))ms (\(totalVertices) total verts)")
   }
 }
+
+#endif

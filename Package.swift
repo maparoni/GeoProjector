@@ -45,7 +45,10 @@ let package = Package(
         .product(name: "GeoJSONKit", package: "geojsonkit"),
       ],
       resources: [
-        .copy("Resources"),
+        // `.process` (rather than `.copy`) so SPM emits a properly-formed
+        // bundle with an Info.plist on iOS — bare `.copy` directories fail
+        // CodeSign with "bundle format unrecognized" on the iOS device SDK.
+        .process("Resources"),
       ]),
     .testTarget(
       name: "GeoProjectorDanseijiTests",
