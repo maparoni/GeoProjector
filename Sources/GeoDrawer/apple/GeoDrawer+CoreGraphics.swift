@@ -229,30 +229,35 @@ extension GeoDrawer {
       let clipPath = mapBoundsPath(projection.mapBounds)
       var clipped = false
       for content in contents {
+        let raster: CGImage?
         switch content {
         case .baseMap(let baseMap):
-          guard let raster = renderedBaseMap(baseMap, coordinateSystem: coordinateSystem) else { continue }
-          if !clipped, let clipPath {
-            context.saveGState()
-            context.addPath(clipPath)
-            context.clip()
-            clipped = true
-          }
-          context.saveGState()
-          // `CGContext.draw(image:in:)` ignores the user-space y-axis
-          // direction and always places image row 0 at the rect's maxY in
-          // its own (y-up) frame. On UIKit the surrounding CTM is flipped,
-          // so without a counter-flip the raster lands upside-down. AppKit
-          // contexts are unflipped, so leave the CTM alone there.
-          if coordinateSystem == .topLeft {
-            context.translateBy(x: 0, y: bounds.maxY)
-            context.scaleBy(x: 1, y: -1)
-          }
-          context.draw(raster, in: bounds)
-          context.restoreGState()
+          raster = renderedBaseMap(baseMap, coordinateSystem: coordinateSystem)
+        case .tiledBaseMap(let tiled):
+          raster = renderedTiledBaseMap(tiled, coordinateSystem: coordinateSystem)
         case .circle, .line, .polygon:
-          break
+          continue
         }
+        guard let raster else { continue }
+
+        if !clipped, let clipPath {
+          context.saveGState()
+          context.addPath(clipPath)
+          context.clip()
+          clipped = true
+        }
+        context.saveGState()
+        // `CGContext.draw(image:in:)` ignores the user-space y-axis
+        // direction and always places image row 0 at the rect's maxY in
+        // its own (y-up) frame. On UIKit the surrounding CTM is flipped,
+        // so without a counter-flip the raster lands upside-down. AppKit
+        // contexts are unflipped, so leave the CTM alone there.
+        if coordinateSystem == .topLeft {
+          context.translateBy(x: 0, y: bounds.maxY)
+          context.scaleBy(x: 1, y: -1)
+        }
+        context.draw(raster, in: bounds)
+        context.restoreGState()
       }
       if clipped {
         context.restoreGState()
@@ -261,8 +266,8 @@ extension GeoDrawer {
 
     for content in contents {
       switch content {
-      case .circle, .baseMap:
-        break // baseMap drawn above; circles go above the outline
+      case .circle, .baseMap, .tiledBaseMap:
+        break // baseMap and tiledBaseMap drawn above; circles go above the outline
       case let .line(lines, stroke, strokeWidth):
         for line in lines {
           draw(line, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
@@ -283,7 +288,7 @@ extension GeoDrawer {
       switch content {
       case let .circle(position, radius, fill, stroke, strokeWidth):
         drawCircle(position, radius: radius, fillColor: fill, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
-      case .line, .polygon, .baseMap:
+      case .line, .polygon, .baseMap, .tiledBaseMap:
         break // under the outline, as they follow projection
       }
     }

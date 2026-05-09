@@ -212,11 +212,11 @@ extension ContentView {
           acc.append(contentsOf: line.positions)
         case .polygon(let polygon, _, _, _):
           acc.append(contentsOf: polygon.exterior.positions)
-        case .baseMap:
+        case .baseMap, .tiledBaseMap:
           break
         }
       }
-      
+
       if positions.isEmpty {
         zoomTo = nil
       } else {
@@ -237,7 +237,7 @@ extension GeoDrawer.Content {
       return .polygon(polygon, fill: color, strokeWidth: strokeWidth)
     case .circle(let position, let radius, _, _, let strokeWidth):
       return .circle(position, radius: radius, fill: color, strokeWidth: strokeWidth)
-    case .baseMap:
+    case .baseMap, .tiledBaseMap:
       return self
     }
   }

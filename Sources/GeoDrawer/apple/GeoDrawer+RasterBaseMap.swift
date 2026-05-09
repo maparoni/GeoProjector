@@ -37,6 +37,7 @@ extension GeoDrawer {
   final class BaseMapCache: @unchecked Sendable {
     private let lock = NSLock()
     private var entries: [BaseMapCacheKey: CGImage] = [:]
+    private var tiledEntries: [TiledRasterCacheKey: CGImage] = [:]
 
     func get(_ key: BaseMapCacheKey) -> CGImage? {
       lock.lock()
@@ -48,6 +49,18 @@ extension GeoDrawer {
       lock.lock()
       defer { lock.unlock() }
       entries[key] = image
+    }
+
+    func getTiled(_ key: TiledRasterCacheKey) -> CGImage? {
+      lock.lock()
+      defer { lock.unlock() }
+      return tiledEntries[key]
+    }
+
+    func setTiled(_ key: TiledRasterCacheKey, _ image: CGImage) {
+      lock.lock()
+      defer { lock.unlock() }
+      tiledEntries[key] = image
     }
   }
 

@@ -36,6 +36,11 @@ public struct URLTemplateTileSource: TileSource {
   public let maxZoom: Int
   public let attribution: String?
 
+  /// The URL template uniquely identifies the tile content for caching
+  /// purposes (assuming differing `{z}/{x}/{y}` substitutions return
+  /// distinct images).
+  public var tileSourceID: AnyHashable { template }
+
   private let userAgent: String?
   private let urlSession: URLSession
   private let decoder: @Sendable (Data) throws -> TileImage?

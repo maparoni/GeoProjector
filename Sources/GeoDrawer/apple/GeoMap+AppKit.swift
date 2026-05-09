@@ -141,13 +141,24 @@ public class GeoMapView: NSView {
       guard let self else { return }
       do {
         let projected = try await drawer.projectInParallel(contents, coordinateSystem: .bottomLeft)
-        // Pre-warm the base-map raster cache off the main thread. A cold
-        // miss inside `draw(_:)` would block the run loop for the duration
-        // of the per-pixel inverse-projection sweep.
+        // Pre-fetch tiled base-map tiles, then pre-warm both raster
+        // caches. A cold miss inside `draw(_:)` would block the run loop
+        // for either the network round-trip or the per-pixel sweep.
         for content in projected {
           if Task.isCancelled { break }
-          if case let .baseMap(baseMap) = content {
+          if case let .tiledBaseMap(tiled) = content {
+            try? await drawer.prefetchTiles(for: tiled)
+          }
+        }
+        for content in projected {
+          if Task.isCancelled { break }
+          switch content {
+          case let .baseMap(baseMap):
             _ = drawer.renderedBaseMap(baseMap, coordinateSystem: .bottomLeft)
+          case let .tiledBaseMap(tiled):
+            _ = drawer.renderedTiledBaseMap(tiled, coordinateSystem: .bottomLeft)
+          case .line, .polygon, .circle:
+            break
           }
         }
         if Task.isCancelled { return }

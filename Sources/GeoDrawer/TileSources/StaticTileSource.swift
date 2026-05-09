@@ -24,6 +24,7 @@ import Foundation
 /// empty, both default to `0`.
 public struct StaticTileSource: TileSource {
 
+  public let tileSourceID: AnyHashable
   public let projection: any Projection
   public let tileSize: Int
   public let minZoom: Int
@@ -34,8 +35,10 @@ public struct StaticTileSource: TileSource {
   public init(
     projection: any Projection,
     tileSize: Int,
-    tiles: [TileKey: TileImage]
+    tiles: [TileKey: TileImage],
+    id: AnyHashable = UUID()
   ) {
+    self.tileSourceID = id
     self.projection = projection
     self.tileSize = tileSize
     self.tiles = tiles

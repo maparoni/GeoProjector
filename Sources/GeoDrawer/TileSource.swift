@@ -61,6 +61,13 @@ public struct TileImage: Sendable, Hashable {
 /// the renderer's parallel pixel-sampling tasks, and `tile(for:)` may be
 /// invoked concurrently from many actors.
 public protocol TileSource: Sendable {
+  /// Stable identifier for this tile source. Two sources with the same
+  /// `tileSourceID` are treated as interchangeable by the renderer's cache
+  /// and by `Hashable`/`Equatable` checks on `Content` — so the value
+  /// should be cheap to compare and uniquely identify the underlying tile
+  /// data (a URL template string, a UUID generated at construction, etc.).
+  var tileSourceID: AnyHashable { get }
+
   /// The projection that the tiles render through. Slippy-map services use
   /// Web Mercator (`Projections.Mercator`); static grids may use any
   /// projection that has a square or near-square `projectionSize` aspect.

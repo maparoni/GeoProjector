@@ -140,6 +140,12 @@ public struct GeoDrawer {
   /// for a given `BaseMap` is the same; when any of those change, the
   /// owner (e.g. `GeoMapView`) builds a new `GeoDrawer`, dropping this cache.
   let baseMapCache = BaseMapCache()
+
+  /// Class-backed cache of fetched-and-decoded tile bitmaps, keyed by
+  /// source identity + tile coordinate. Independent of the `BaseMap`
+  /// raster cache because tile fetching happens before rendering and
+  /// individual tiles are reusable across canvas size / zoom changes.
+  let tileCache = TileCache()
 #endif
 
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }
@@ -188,6 +194,10 @@ extension GeoDrawer {
     /// A raster image draped under the vector layers, sampled per output pixel
     /// via the projection's `inverse(_:)`. SVG output omits this case in v1.
     case baseMap(BaseMap)
+    /// A raster underlay backed by a `TileSource` — for slippy-map tiles or
+    /// pre-decoded high-resolution grids. Tiles are pre-fetched on the
+    /// async pipeline before the per-pixel sampler runs.
+    case tiledBaseMap(TiledBaseMap)
 #endif
   }
 
@@ -219,6 +229,9 @@ extension GeoDrawer {
     /// drawing context, since per-pixel inverse projection has nothing to do
     /// with per-vertex projection.
     case baseMap(BaseMap)
+    /// Pass-through; the tile prefetcher and per-pixel sampler run later
+    /// during the draw step.
+    case tiledBaseMap(TiledBaseMap)
 #endif
   }
 }
@@ -249,6 +262,8 @@ extension GeoDrawer {
 #if canImport(CoreGraphics)
     case let .baseMap(baseMap):
       return .baseMap(baseMap)
+    case let .tiledBaseMap(tiled):
+      return .tiledBaseMap(tiled)
 #endif
     }
   }
