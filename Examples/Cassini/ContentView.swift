@@ -203,25 +203,27 @@ struct OptionsView: View {
               .frame(width: 100, alignment: .trailing)
           }
           .frame(minWidth: 200)
-          
+
           TextField(value: $model.refLat, format: .number.precision(.fractionLength(1))) {
             EmptyView()
           }
           .frame(maxWidth: 55)
         }
-        
+        .disabled(!model.projectionType.usesReferenceLatitude)
+
         HStack {
           Slider(value: $model.refLng, in: -180...180) {
             Text("Longitude")
               .frame(width: 100, alignment: .trailing)
           }
           .frame(minWidth: 200)
-          
+
           TextField(value: $model.refLng, format: .number.precision(.fractionLength(1))) {
             EmptyView()
           }
           .frame(maxWidth: 55)
         }
+        .disabled(!model.projectionType.usesReferenceLongitude)
       }
       
       GroupBox("Edge Insets") {

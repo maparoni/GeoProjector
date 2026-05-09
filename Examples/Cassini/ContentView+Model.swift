@@ -34,6 +34,24 @@ extension ContentView {
     case danseijiVI
 
     var id: String { rawValue }
+
+    /// Whether the projection's output depends on the reference latitude.
+    var usesReferenceLatitude: Bool {
+      switch self {
+      case .orthographic, .azimuthal: return true
+      case .equirectangular, .cassini, .mercator, .gallPeters, .equalEarth, .naturalEarth,
+           .danseijiI, .danseijiII, .danseijiIII, .danseijiIV, .danseijiV, .danseijiVI: return false
+      }
+    }
+
+    /// Whether the projection's output depends on the reference longitude.
+    var usesReferenceLongitude: Bool {
+      switch self {
+      case .cassini: return false
+      case .equirectangular, .mercator, .gallPeters, .equalEarth, .naturalEarth, .orthographic, .azimuthal,
+           .danseijiI, .danseijiII, .danseijiIII, .danseijiIV, .danseijiV, .danseijiVI: return true
+      }
+    }
   }
   
   struct Layer: Identifiable {
