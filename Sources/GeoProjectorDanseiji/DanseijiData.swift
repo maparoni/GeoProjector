@@ -169,11 +169,37 @@ enum DanseijiLoader {
       pixels.append(row)
     }
 
+    // The mesh files store planar coordinates with the bounding box centred
+    // around (0, 0), but the geographic origin (lat=0, lon=0) does not always
+    // map there: variants III–VI are deformed off-centre. The `Projection`
+    // contract requires `reference` to project to `(0, 0)`, so probe the
+    // parsed mesh for where (0, 0) lands and translate everything by that
+    // offset. Variants whose data is already centred (I, II) get a near-zero
+    // offset and are unaffected.
+    let probe = DanseijiData(
+      cells: cells,
+      edge: edge,
+      pixels: pixels,
+      edgeBounds: Rect(origin: .zero, size: .zero),
+      projectionSize: .zero
+    )
+    let offset = DanseijiCore.project(.init(x: 0, y: 0), data: probe) ?? .zero
+
+    let shiftedCells: [[DanseijiData.Cell]] = cells.map { row in
+      row.map { cell in
+        DanseijiData.Cell(
+          shape: cell.shape,
+          vertices: cell.vertices.map { Point(x: $0.x - offset.x, y: $0.y - offset.y) }
+        )
+      }
+    }
+    let shiftedEdge = edge.map { Point(x: $0.x - offset.x, y: $0.y - offset.y) }
+
     var xMin = Double.infinity
     var xMax = -Double.infinity
     var yMin = Double.infinity
     var yMax = -Double.infinity
-    for p in edge {
+    for p in shiftedEdge {
       if p.x < xMin { xMin = p.x }
       if p.x > xMax { xMax = p.x }
       if p.y < yMin { yMin = p.y }
@@ -183,8 +209,8 @@ enum DanseijiLoader {
     let maxAbsY = max(abs(yMin), abs(yMax))
 
     return DanseijiData(
-      cells: cells,
-      edge: edge,
+      cells: shiftedCells,
+      edge: shiftedEdge,
       pixels: pixels,
       edgeBounds: Rect(
         origin: Point(x: xMin, y: yMin),
