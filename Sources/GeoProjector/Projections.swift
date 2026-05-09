@@ -12,3 +12,13 @@ import Foundation
 /// Namespace for all projections
 public enum Projections {}
 
+extension Projections {
+  /// Wraps a longitude in radians back into `-pi...pi`.
+  static func wrapLongitude(_ x: Double) -> Double {
+    var v = x
+    if v >  .pi { v -= 2 * .pi }
+    if v < -.pi { v += 2 * .pi }
+    return v
+  }
+}
+

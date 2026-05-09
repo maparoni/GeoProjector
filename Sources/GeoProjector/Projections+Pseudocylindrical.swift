@@ -73,7 +73,25 @@ extension Projections {
       let adjusted = Projections.adjust(point, reference: reference)
       return Self.project(adjusted)
     }
-    
+
+    public func inverse(_ point: Point) -> Point? {
+      guard mapBounds.contains(point, projectionSize: projectionSize) else { return nil }
+      // Newton-Raphson on theta:  f(θ) = poly9(θ) - Y,  f'(θ) = poly8(θ).
+      // Matches d3-geo's equalEarthInvert.
+      var theta = point.y
+      for _ in 0..<12 {
+        let f  = Self.poly9(theta) - point.y
+        let fp = Self.poly8(theta)
+        let delta = f / fp
+        theta -= delta
+        if abs(delta) < 1e-12 { break }
+      }
+      let sinTheta = sin(theta)
+      let phi = asin(min(1.0, max(-1.0, sinTheta / Self.B)))
+      let lambda = point.x * Self.B * Self.poly8(theta) / cos(theta)
+      return .init(x: Projections.wrapLongitude(lambda + reference.x), y: phi)
+    }
+
     private static func project(_ point: Point) -> Point {
       let th = asin(Self.B * sin(point.y))
       return .init(
@@ -148,18 +166,52 @@ extension Projections {
       let adjusted = Projections.adjust(point, reference: reference)
       return Self.project(adjusted)
     }
-    
+
+    public func inverse(_ point: Point) -> Point? {
+      guard mapBounds.contains(point, projectionSize: projectionSize) else { return nil }
+      // Newton-Raphson on phi from y(phi). Matches d3-geo-projection's naturalEarth1Invert.
+      var phi = point.y
+      for _ in 0..<25 {
+        let f  = Self.yOfPhi(phi) - point.y
+        let fp = Self.dyOfPhi(phi)
+        let delta = f / fp
+        phi -= delta
+        if abs(delta) < 1e-9 { break }
+      }
+      phi = min(.pi/2, max(-.pi/2, phi))
+      let lam = point.x / Self.fxOfPhi(phi)
+      return .init(x: Projections.wrapLongitude(lam + reference.x), y: phi)
+    }
+
     private static func project(_ point: Point) -> Point {
       let phi = point.y
       let lam = point.x
-      
+
       let phi2 = phi * phi
       let phi4 = phi2 * phi2
-      
+
       let x = lam * (A0 + phi2 * (A1 + phi2 * (A2 + phi4 * phi2 * (A3 + phi2 * A4))))
       let y = phi * (B0 + phi2 * (B1 + phi4 * (B2 + B3 * phi2 + B4 * phi4)))
-      
+
       return .init(x: x, y: y)
+    }
+
+    // y(phi) = B0·φ + B1·φ³ + B2·φ⁷ + B3·φ⁹ + B4·φ¹¹
+    private static func yOfPhi(_ phi: Double) -> Double {
+      let p2 = phi * phi, p4 = p2 * p2
+      return phi * (B0 + p2 * (B1 + p4 * (B2 + B3 * p2 + B4 * p4)))
+    }
+
+    // dy/dphi = B0 + 3·B1·φ² + 7·B2·φ⁶ + 9·B3·φ⁸ + 11·B4·φ¹⁰
+    private static func dyOfPhi(_ phi: Double) -> Double {
+      let p2 = phi * phi, p4 = p2 * p2, p6 = p4 * p2, p8 = p4 * p4, p10 = p8 * p2
+      return B0 + 3 * B1 * p2 + 7 * B2 * p6 + 9 * B3 * p8 + 11 * B4 * p10
+    }
+
+    // Coefficient of lambda in the forward x(lambda, phi) expression.
+    private static func fxOfPhi(_ phi: Double) -> Double {
+      let p2 = phi * phi, p4 = p2 * p2
+      return A0 + p2 * (A1 + p2 * (A2 + p4 * p2 * (A3 + p2 * A4)))
     }
   }
   
