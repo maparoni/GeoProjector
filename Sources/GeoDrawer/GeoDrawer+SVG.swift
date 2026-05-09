@@ -67,6 +67,10 @@ extension GeoDrawer {
         for polygon in polygons {
           svg.addPolygon(polygon, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
         }
+#if canImport(CoreGraphics)
+      case .baseMap:
+        break  // SVG output omits raster base maps in v1
+#endif
       }
     }
 
@@ -84,6 +88,10 @@ extension GeoDrawer {
           position, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
       case .line, .polygon:
         break  // Already drawn
+#if canImport(CoreGraphics)
+      case .baseMap:
+        break  // SVG output omits raster base maps in v1
+#endif
       }
     }
 

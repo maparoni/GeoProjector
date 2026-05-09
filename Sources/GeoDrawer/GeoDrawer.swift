@@ -133,6 +133,15 @@ public struct GeoDrawer {
 
   public let insets: EdgeInsets
 
+#if canImport(CoreGraphics)
+  /// Class-backed cache of rendered base-map rasters. Sharing a reference
+  /// across drawer copies is intentional: as long as the drawer's
+  /// `(projection, size, zoomTo, insets)` tuple is the same, the raster
+  /// for a given `BaseMap` is the same; when any of those change, the
+  /// owner (e.g. `GeoMapView`) builds a new `GeoDrawer`, dropping this cache.
+  let baseMapCache = BaseMapCache()
+#endif
+
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }
 
   let converter: (GeoJSON.Position, CoordinateSystem) -> Point?
@@ -175,6 +184,11 @@ extension GeoDrawer {
     case line(GeoJSON.LineString, stroke: Color, strokeWidth: Double = 2)
     case polygon(GeoJSON.Polygon, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
     case circle(GeoJSON.Position, radius: Double, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
+#if canImport(CoreGraphics)
+    /// A raster image draped under the vector layers, sampled per output pixel
+    /// via the projection's `inverse(_:)`. SVG output omits this case in v1.
+    case baseMap(BaseMap)
+#endif
   }
 
 }
@@ -200,6 +214,12 @@ extension GeoDrawer {
     case line([ProjectedLineString], stroke: Color, strokeWidth: Double)
     case polygon([ProjectedPolygon], fill: Color, stroke: Color?, strokeWidth: Double)
     case circle(Point, radius: Double, fill: Color, stroke: Color?, strokeWidth: Double)
+#if canImport(CoreGraphics)
+    /// Pass-through case. The raster is rendered later, against the active
+    /// drawing context, since per-pixel inverse projection has nothing to do
+    /// with per-vertex projection.
+    case baseMap(BaseMap)
+#endif
   }
 }
 
@@ -226,6 +246,10 @@ extension GeoDrawer {
     case let .circle(center, radius, fill, stroke, strokeWidth):
       guard let point = converter(center, coordinateSystem) else { return nil }
       return .circle(point, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
+#if canImport(CoreGraphics)
+    case let .baseMap(baseMap):
+      return .baseMap(baseMap)
+#endif
     }
   }
 

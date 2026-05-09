@@ -152,6 +152,16 @@ public class GeoMapView: UIView {
       guard let self else { return }
       do {
         let projected = try await drawer.projectInParallel(contents, coordinateSystem: .topLeft)
+        // Pre-warm the base-map raster cache off the main thread. A cold
+        // miss inside `draw(_:)` would block the run loop for the duration
+        // of the per-pixel inverse-projection sweep.
+        for content in projected {
+          if Task.isCancelled { break }
+          if case let .baseMap(baseMap) = content {
+            _ = drawer.renderedBaseMap(baseMap, coordinateSystem: .topLeft)
+          }
+        }
+        if Task.isCancelled { return }
         await MainActor.run {
           self.projectProgress = .finished(projected)
           self.setNeedsDisplay(self.bounds)

@@ -141,27 +141,44 @@ extension GeoDrawer {
   }
   
   func draw(_ bounds: MapBounds, fillColor: CGColor? = nil, strokeColor: CGColor? = nil, in context: CGContext) {
-    guard let projection else {
+    guard let path = mapBoundsPath(bounds) else {
       return assertionFailure("Drawing map bounds not supported for provided converter.")
     }
-    
-    let path: CGPath
-    
+
+    context.addPath(path)
+    if let fillColor {
+      context.setFillColor(fillColor)
+      context.fillPath()
+    }
+
+    if let strokeColor {
+      context.setStrokeColor(strokeColor)
+      context.setLineWidth(2)
+      context.strokePath()
+    }
+
+  }
+
+  /// Builds the screen-space path of the projection's `mapBounds`. Returns
+  /// `nil` if the drawer was constructed without a projection. Factored out
+  /// so both `draw(_ bounds:...)` and the base-map raster step can use it
+  /// for clipping.
+  func mapBoundsPath(_ bounds: MapBounds) -> CGPath? {
+    guard let projection else { return nil }
+
     switch bounds {
     case .ellipse:
       let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
       let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
-
-      path = CGPath(ellipseIn: .init(
+      return CGPath(ellipseIn: .init(
         origin: min.cgPoint,
         size: .init(width: max.x - min.x, height: max.y - min.y)
       ), transform: nil)
-      
+
     case .rectangle:
       let min = projection.translate(.init(x: -1 * projection.projectionSize.width / 2, y: projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
       let max = projection.translate(.init(x: projection.projectionSize.width / 2, y: -1 * projection.projectionSize.height / 2), to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
-      
-      path = CGPath(rect: .init(
+      return CGPath(rect: .init(
         origin: min.cgPoint,
         size: .init(width: max.x - min.x, height: max.y - min.y)
       ), transform: nil)
@@ -173,24 +190,9 @@ extension GeoDrawer {
       for point in points[1...] {
         mutable.addLine(to: point.cgPoint)
       }
-      // Close the ring so the stroke joins the last vertex back to the
-      // first — otherwise there's a visible gap on Danseiji outlines.
       mutable.closeSubpath()
-      path = mutable
+      return mutable
     }
-    
-    context.addPath(path)
-    if let fillColor {
-      context.setFillColor(fillColor)
-      context.fillPath()
-    }
-    
-    if let strokeColor {
-      context.setStrokeColor(strokeColor)
-      context.setLineWidth(2)
-      context.strokePath()
-    }
-
   }
 }
 
@@ -219,11 +221,37 @@ extension GeoDrawer {
     if let mapBackground, let projection {
       draw(projection.mapBounds, fillColor: mapBackground, in: context)
     }
-    
+
+    // Base maps go under the vector layers but above the map background fill,
+    // clipped to the projection's image so ellipse/bezier outlines don't leak
+    // raster pixels past the projection's edge.
+    if let projection {
+      let clipPath = mapBoundsPath(projection.mapBounds)
+      var clipped = false
+      for content in contents {
+        switch content {
+        case .baseMap(let baseMap):
+          guard let raster = renderedBaseMap(baseMap, coordinateSystem: coordinateSystem) else { continue }
+          if !clipped, let clipPath {
+            context.saveGState()
+            context.addPath(clipPath)
+            context.clip()
+            clipped = true
+          }
+          context.draw(raster, in: bounds)
+        case .circle, .line, .polygon:
+          break
+        }
+      }
+      if clipped {
+        context.restoreGState()
+      }
+    }
+
     for content in contents {
       switch content {
-      case .circle:
-        break // this will go above the outline, as they might go outside projection
+      case .circle, .baseMap:
+        break // baseMap drawn above; circles go above the outline
       case let .line(lines, stroke, strokeWidth):
         for line in lines {
           draw(line, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
@@ -234,17 +262,17 @@ extension GeoDrawer {
         }
       }
     }
-    
+
     if let mapOutline, let projection {
       // Draw a border background *on top*
       draw(projection.mapBounds, strokeColor: mapOutline, in: context)
     }
-    
+
     for content in contents {
       switch content {
       case let .circle(position, radius, fill, stroke, strokeWidth):
         drawCircle(position, radius: radius, fillColor: fill, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
-      case .line, .polygon:
+      case .line, .polygon, .baseMap:
         break // under the outline, as they follow projection
       }
     }

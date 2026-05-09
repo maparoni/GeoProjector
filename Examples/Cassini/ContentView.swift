@@ -196,6 +196,10 @@ struct OptionsView: View {
       }
 #endif
 
+      GroupBox("Base map") {
+        Toggle("Show procedural texture", isOn: $model.showBaseMap)
+      }
+
       GroupBox("Reference") {
         HStack {
           Slider(value: $model.refLat, in: -90...90) {
