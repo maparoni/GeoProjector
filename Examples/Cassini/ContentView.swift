@@ -197,7 +197,7 @@ struct OptionsView: View {
 #endif
 
       GroupBox("Base map") {
-        Toggle("Show procedural texture", isOn: $model.showBaseMap)
+        Toggle("Show Blue Marble", isOn: $model.showBaseMap)
       }
 
       GroupBox("Reference") {

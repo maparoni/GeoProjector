@@ -11,6 +11,12 @@ import Foundation
 import CoreGraphics
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
 import GeoJSONKit
 import GeoDrawer
 import GeoProjectorDanseiji
@@ -104,16 +110,17 @@ extension ContentView {
 
     @Published var showBaseMap: Bool = false
 
-    /// Lazily-built procedural equirectangular texture, used to demonstrate
-    /// the base-map drawing path without bundling a real-world raster like
-    /// NASA Blue Marble. Building it on demand keeps app launch instant.
-    private var _proceduralBaseMap: GeoDrawer.BaseMap?
+    /// Lazily-decoded NASA Blue Marble Next Generation base map. The asset is
+    /// shipped in the Cassini asset catalogue (5400×2700 equirectangular JPEG
+    /// from the 2004-08 monthly composite). The decode happens once on first
+    /// toggle and is cached for the app's lifetime.
+    private var _blueMarble: GeoDrawer.BaseMap?
     var baseMap: GeoDrawer.BaseMap? {
       guard showBaseMap else { return nil }
-      if _proceduralBaseMap == nil {
-        _proceduralBaseMap = ProceduralBaseMap.make()
+      if _blueMarble == nil {
+        _blueMarble = BlueMarble.load()
       }
-      return _proceduralBaseMap
+      return _blueMarble
     }
     
     func updateProjection() {
@@ -236,121 +243,22 @@ extension GeoDrawer.Content {
 
 }
 
-// MARK: - Procedural base map
+// MARK: - Blue Marble base map
 
-/// Synthesises an equirectangular bitmap suitable for use as a base map
-/// without bundling a real-world raster. Cosines of lat/lon produce
-/// continent-ish blobs that read clearly across projections, with a 15°
-/// graticule to make any UV-flip / antimeridian-seam / pole-stretch bug
-/// immediately obvious.
-enum ProceduralBaseMap {
+/// Loads NASA's Blue Marble Next Generation 2004-08 composite from the bundled
+/// asset catalogue. Source: https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/
+enum BlueMarble {
+  static let assetName = "world.200408.3x5400x2700"
 
-  static func make(width: Int = 720, height: Int = 360) -> GeoDrawer.BaseMap? {
-    let bytesPerRow = width * 4
-    let totalBytes = bytesPerRow * height
-    let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: totalBytes)
-    buffer.initialize(repeating: 0, count: totalBytes)
-
-    for y in 0..<height {
-      let latRad = (.pi / 2) - (Double(y) + 0.5) / Double(height) * .pi
-      let latDeg = latRad * 180 / .pi
-      let absLat = abs(latDeg)
-      let band: Band = absLat > 75 ? .iceCap
-        : absLat > 60 ? .tundra
-        : absLat > 25 ? .temperate
-        : absLat > 8  ? .desert
-        : .tropical
-
-      for x in 0..<width {
-        let lonRad = (Double(x) + 0.5) / Double(width) * 2 * .pi - .pi
-        let lonDeg = lonRad * 180 / .pi
-
-        let isLand = band != .iceCap && Self.landMask(latDeg: latDeg, lonDeg: lonDeg)
-        var rgb: (UInt8, UInt8, UInt8)
-        if band == .iceCap {
-          rgb = (240, 240, 245)
-        } else if isLand {
-          rgb = band.land
-        } else {
-          rgb = band.ocean
-        }
-
-        if Self.onGraticule(latDeg: latDeg, lonDeg: lonDeg) {
-          rgb = (UInt8(Int(rgb.0) * 3 / 4), UInt8(Int(rgb.1) * 3 / 4), UInt8(Int(rgb.2) * 3 / 4))
-        }
-
-        let off = y * bytesPerRow + x * 4
-        buffer[off + 0] = rgb.0
-        buffer[off + 1] = rgb.1
-        buffer[off + 2] = rgb.2
-        buffer[off + 3] = 255
-      }
-    }
-
-    let cs = CGColorSpaceCreateDeviceRGB()
-    let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
-    guard let provider = CGDataProvider(
-      dataInfo: nil,
-      data: buffer,
-      size: totalBytes,
-      releaseData: { _, ptr, _ in ptr.deallocate() }
-    ),
-    let cgImage = CGImage(
-      width: width, height: height,
-      bitsPerComponent: 8, bitsPerPixel: 32,
-      bytesPerRow: bytesPerRow,
-      space: cs,
-      bitmapInfo: CGBitmapInfo(rawValue: bitmapInfo),
-      provider: provider,
-      decode: nil,
-      shouldInterpolate: false,
-      intent: .defaultIntent
-    ) else {
-      buffer.deallocate()
-      return nil
-    }
-
-    return GeoDrawer.BaseMap(cgImage: cgImage, sampling: .bilinear, alpha: 1.0)
-  }
-
-  private enum Band {
-    case iceCap, tundra, temperate, desert, tropical
-    var land: (UInt8, UInt8, UInt8) {
-      switch self {
-      case .iceCap:    return (240, 240, 245)
-      case .tundra:    return (190, 200, 180)
-      case .temperate: return (110, 150, 90)
-      case .desert:    return (210, 190, 140)
-      case .tropical:  return (60, 130, 70)
-      }
-    }
-    var ocean: (UInt8, UInt8, UInt8) {
-      switch self {
-      case .iceCap:    return (200, 220, 230)
-      case .tundra:    return (60, 90, 130)
-      case .temperate: return (40, 80, 140)
-      case .desert:    return (35, 70, 130)
-      case .tropical:  return (30, 80, 150)
-      }
-    }
-  }
-
-  private static func landMask(latDeg: Double, lonDeg: Double) -> Bool {
-    let lat = latDeg * .pi / 180
-    let lon = lonDeg * .pi / 180
-    let v = sin(lon * 1.5) * cos(lat * 0.7)
-          + sin(lon * 0.7 + 1.2) * cos(lat * 1.5 + 0.3)
-          + 0.6 * sin(lon * 3 + 0.5) * cos(lat * 2)
-    return v > 0.4
-  }
-
-  private static func onGraticule(latDeg: Double, lonDeg: Double) -> Bool {
-    let latStep = 15.0
-    let lonStep = 15.0
-    let thresh = 0.5
-    let latRem = abs(latDeg.truncatingRemainder(dividingBy: latStep))
-    let lonRem = abs(lonDeg.truncatingRemainder(dividingBy: lonStep))
-    return latRem < thresh || latRem > latStep - thresh
-        || lonRem < thresh || lonRem > lonStep - thresh
+  static func load() -> GeoDrawer.BaseMap? {
+#if canImport(UIKit)
+    guard let image = UIImage(named: assetName) else { return nil }
+    return GeoDrawer.BaseMap(uiImage: image, sampling: .bilinear, alpha: 1.0)
+#elseif canImport(AppKit)
+    guard let image = NSImage(named: assetName) else { return nil }
+    return GeoDrawer.BaseMap(nsImage: image, sampling: .bilinear, alpha: 1.0)
+#else
+    return nil
+#endif
   }
 }
