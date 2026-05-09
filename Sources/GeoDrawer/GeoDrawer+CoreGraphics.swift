@@ -173,6 +173,9 @@ extension GeoDrawer {
       for point in points[1...] {
         mutable.addLine(to: point.cgPoint)
       }
+      // Close the ring so the stroke joins the last vertex back to the
+      // first — otherwise there's a visible gap on Danseiji outlines.
+      mutable.closeSubpath()
       path = mutable
     }
     
