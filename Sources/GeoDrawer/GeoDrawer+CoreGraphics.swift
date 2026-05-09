@@ -238,7 +238,18 @@ extension GeoDrawer {
             context.clip()
             clipped = true
           }
+          context.saveGState()
+          // `CGContext.draw(image:in:)` ignores the user-space y-axis
+          // direction and always places image row 0 at the rect's maxY in
+          // its own (y-up) frame. On UIKit the surrounding CTM is flipped,
+          // so without a counter-flip the raster lands upside-down. AppKit
+          // contexts are unflipped, so leave the CTM alone there.
+          if coordinateSystem == .topLeft {
+            context.translateBy(x: 0, y: bounds.maxY)
+            context.scaleBy(x: 1, y: -1)
+          }
           context.draw(raster, in: bounds)
+          context.restoreGState()
         case .circle, .line, .polygon:
           break
         }

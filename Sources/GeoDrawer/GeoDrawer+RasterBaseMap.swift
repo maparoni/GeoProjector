@@ -55,19 +55,18 @@ extension GeoDrawer {
   /// projection's `inverse(_:)` to look up a source pixel for each output
   /// pixel.
   ///
-  /// Output is a CGImage with premultiplied alpha; row 0 is the top of the
-  /// canvas regardless of the destination context's CTM, since
-  /// `CGContext.draw(image:in:)` places the image's row 0 at the visually-top
-  /// of the rect on both UIKit (flipped CTM) and AppKit (identity CTM)
-  /// contexts. Pixels outside the projection's image are left transparent so
-  /// the surrounding `mapBackground` / `mapBackdrop` shows through. The
-  /// result is cached on the drawer keyed by the `BaseMap`'s identity, so
-  /// subsequent draws (e.g. triggered by toggling vector layers) reuse the
-  /// same raster.
+  /// Output is a CGImage with premultiplied alpha and row 0 at the visual
+  /// top of the canvas (north pole). Pixels outside the projection's image
+  /// are left transparent so the surrounding `mapBackground` /
+  /// `mapBackdrop` shows through. The result is cached on the drawer keyed
+  /// by the `BaseMap`'s identity, so subsequent draws (e.g. triggered by
+  /// toggling vector layers) reuse the same raster.
   ///
   /// The `coordinateSystem` parameter is accepted for API symmetry with the
-  /// other `GeoDrawer` entry points but is intentionally ignored — the raster
-  /// is always laid out in image-row order (row 0 = visual top).
+  /// other `GeoDrawer` entry points but is intentionally ignored — the
+  /// caller (`draw(_:mapBackground:mapOutline:mapBackdrop:in:)`) is
+  /// responsible for counter-flipping the CTM on UIKit so the raster's
+  /// row 0 lands at the visual top in either coordinate system.
   func renderedBaseMap(_ baseMap: BaseMap, coordinateSystem _: CoordinateSystem) -> CGImage? {
     let key = BaseMapCacheKey(baseMap)
     if let cached = baseMapCache.get(key) {
