@@ -40,7 +40,7 @@ extension GeoDrawer {
   }
   
   func drawCircle(_ position: GeoJSON.Position, radius: CGFloat, fillColor: CGColor, strokeColor: CGColor? = nil, strokeWidth: Double = 2, in context: CGContext) {
-    guard let center = converter(position, coordinateSystem)?.0 else { return }
+    guard let center = converter(position, coordinateSystem) else { return }
     drawCircle(center, radius: radius, fillColor: fillColor, strokeColor: strokeColor, strokeWidth: strokeWidth, in: context)
   }
   

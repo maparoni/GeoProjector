@@ -111,7 +111,7 @@ public struct GeoDrawer {
 
     self.zoomTo = zoomToRect
 
-    self.converter = { position, coordinateSystem -> (Point, Bool)? in
+    self.converter = { position, coordinateSystem -> Point? in
       let point = Point(x: position.longitude.toRadians(), y: position.latitude.toRadians())
       return projection.point(for: point, size: size, zoomTo: zoomToRect, insets: insets, coordinateSystem: coordinateSystem)
     }
@@ -122,7 +122,7 @@ public struct GeoDrawer {
     self.size = size
     self.zoomTo = nil
     self.insets = .zero
-    self.converter = { (converter($0, $1), false) }
+    self.converter = { converter($0, $1) }
   }
 
   public let projection: Projection?
@@ -135,10 +135,10 @@ public struct GeoDrawer {
 
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }
 
-  let converter: (GeoJSON.Position, CoordinateSystem) -> (Point, Bool)?
+  let converter: (GeoJSON.Position, CoordinateSystem) -> Point?
 
   public func point(for position: GeoJSON.Position, coordinateSystem: CoordinateSystem) -> Point? {
-    converter(position, coordinateSystem)?.0
+    converter(position, coordinateSystem)
   }
 }
 
@@ -212,7 +212,7 @@ extension GeoDrawer {
   func project(_ polygon: GeoJSON.Polygon, coordinateSystem: CoordinateSystem) -> [ProjectedPolygon] {
     let invert: Bool = invertCheck?(polygon) ?? false
     let interiors = polygon.interiors.flatMap { convertLine($0.positions, coordinateSystem: coordinateSystem) }
-    return convertLine(polygon.exterior.positions, coordinateSystem: coordinateSystem).map { points in
+    return convertPolygon(polygon.exterior.positions, coordinateSystem: coordinateSystem).map { points in
       return .init(exterior: points, interiors: interiors, invert: invert)
     }
   }
@@ -224,7 +224,7 @@ extension GeoDrawer {
     case let .polygon(polygon, fill, stroke, strokeWidth):
       return .polygon(project(polygon, coordinateSystem: coordinateSystem), fill: fill, stroke: stroke, strokeWidth: strokeWidth)
     case let .circle(center, radius, fill, stroke, strokeWidth):
-      guard let point = converter(center, coordinateSystem)?.0 else { return nil }
+      guard let point = converter(center, coordinateSystem) else { return nil }
       return .circle(point, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
     }
   }
@@ -269,18 +269,22 @@ extension GeoDrawer {
 
 extension GeoDrawer {
 
-  enum Grouping: Equatable {
-    case wrapped
-    case notWrapped
-    case notProjected
-  }
-
-  /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
+  /// Splits a polyline of GeoJSON positions into one or more on-screen
+  /// polylines, each of which stays inside the projection's `mapBounds`.
+  /// Sub-paths that cross the projection edge are anchored at the boundary
+  /// crossing point.
   func convertLine(_ positions: [GeoJSON.Position], coordinateSystem: CoordinateSystem) -> [[Point]] {
-    Self.convertLine(positions, projection: projection, size: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem, converter: converter)
+    Self.convertLine(positions, projection: projection, size: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem, converter: converter, close: false)
   }
 
-  private static func projectLine(_ positions: [GeoJSON.Position], projection: Projection) -> [(Point, Point?)] {
+  /// Same as ``convertLine(_:coordinateSystem:)`` but each split piece is
+  /// closed back to its first point along the projection boundary, so the
+  /// resulting rings are suitable for polygon fill.
+  func convertPolygon(_ positions: [GeoJSON.Position], coordinateSystem: CoordinateSystem) -> [[Point]] {
+    Self.convertLine(positions, projection: projection, size: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem, converter: converter, close: true)
+  }
+
+  static func projectLine(_ positions: [GeoJSON.Position], projection: Projection) -> [(Point, Point?)] {
 
     // 1. Turn degrees into radians
     let unprojected = positions.map { Point(x: $0.longitude.toRadians(), y: $0.latitude.toRadians()) }
@@ -299,92 +303,31 @@ extension GeoDrawer {
     return projected
   }
 
-  /// - Returns: Typically returns a single element, but can return multiple, if the line wraps around
-  private static func convertLine(_ positions: [GeoJSON.Position], projection: Projection?, size: Size, zoomTo: Rect?, insets: EdgeInsets, coordinateSystem: CoordinateSystem, converter: (GeoJSON.Position, CoordinateSystem) -> (Point, Bool)?) -> [[Point]] {
+  private static func convertLine(_ positions: [GeoJSON.Position], projection: Projection?, size: Size, zoomTo: Rect?, insets: EdgeInsets, coordinateSystem: CoordinateSystem, converter: (GeoJSON.Position, CoordinateSystem) -> Point?, close: Bool) -> [[Point]] {
 
     guard let projection else {
       return [positions.compactMap {
-        converter($0, coordinateSystem)?.0
+        converter($0, coordinateSystem)
       }]
     }
 
     let projected = Self.projectLine(positions, projection: projection)
 
-    // 3. Now translate the projected points into point coordinates to draw
-    let converted = projected
-      .map { (unproj, projected) -> (Point, Point?, Grouping) in
-        assert(unproj.isGood)
-        if let projected {
-          let proj = projection.translate(projected, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
-          assert(proj.isGood)
-          return (unproj, proj, projection.willWrap(unproj) ? .wrapped : .notWrapped)
-        } else {
-          return (unproj, nil, .notProjected)
-        }
-      }
+    let pieces: [[Point]]
+    if close {
+      pieces = boundarySplitClosed(projected, mapBounds: projection.mapBounds, projectionSize: projection.projectionSize)
+    } else {
+      pieces = boundarySplit(projected, mapBounds: projection.mapBounds, projectionSize: projection.projectionSize)
+    }
 
-    // 4. Lastly split them up according to whether they were wrapped around
-    //    the edge of the projection to the other side (or hidden).
-    var wraps: [(Point, Point)] = []
-    var unwraps: [(Point, Point)] = []
-    var wip: ([(Point, Point)], Grouping) = ([], .notProjected)
-    for (unproj, proj, group) in converted {
-      if group == wip.1 {
-        if let proj {
-          wip.0.append((unproj, proj))
-        }
-
-      } else {
-        // We got to a new group
-        if !wip.0.isEmpty {
-          switch wip.1 {
-          case .notWrapped:
-            unwraps = wip.0
-          case .wrapped:
-            wraps = wip.0
-          case .notProjected:
-            break
-          }
-        }
-
-        var new: [(Point, Point)]
-        switch group {
-        case .notWrapped:
-          new = unwraps
-        case .wrapped:
-          new = wraps
-        case .notProjected:
-          new = []
-        }
-
-        if let last = new.last?.0 {
-          // When "resuming" the same group, connect with the previous points
-          // in the group, but interpolate again.
-          let interpolated = Interpolator.interpolate(from: last, to: unproj, maxDiff: 0.0025, projector: projection.project(_:))
-          let translated = interpolated.map {
-            let translated = projection.translate($0.1, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
-            assert(translated.isGood)
-            return ($0.0, translated)
-          }
-          new.append(contentsOf: translated)
-        }
-        if let proj {
-          new.append((unproj, proj))
-        }
-        wip = (new, group)
+    // Translate each piece (still in projected radians) to screen coordinates.
+    return pieces.map { piece in
+      piece.map { p in
+        let translated = projection.translate(p, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
+        assert(translated.isGood)
+        return translated
       }
     }
-    if !wip.0.isEmpty {
-      switch wip.1 {
-      case .notWrapped:
-        unwraps = wip.0
-      case .wrapped:
-        wraps = wip.0
-      case .notProjected:
-        break
-      }
-    }
-    return [wraps.map(\.1), unwraps.map(\.1)].filter { !$0.isEmpty }
   }
 }
 

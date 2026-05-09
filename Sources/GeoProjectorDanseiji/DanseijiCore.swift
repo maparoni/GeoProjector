@@ -24,11 +24,6 @@ enum DanseijiCore {
     return Point(x: x, y: point.y)
   }
 
-  static func willWrap(_ point: Point, reference: Point) -> Bool {
-    let dx = point.x - reference.x
-    return dx < -.pi || dx > .pi
-  }
-
   /// Wraps an unbounded longitude (radians) back into `[-pi, pi]`.
   static func wrapLongitude(_ x: Double) -> Double {
     var v = x

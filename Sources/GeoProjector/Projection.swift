@@ -48,8 +48,6 @@ public protocol Projection {
   /// or beyond the rectangle for the cylindricals).
   func inverse(_ point: Point) -> Point?
 
-  func willWrap(_ point: Point) -> Bool
-
   /// The maximum width/height that the projection uses, in radians.
   ///
   /// All projected points should be in the range of:
@@ -67,8 +65,6 @@ extension Projection {
 
   public var invertCheck: ((GeoJSON.Polygon) -> Bool)? { nil }
 
-  public func willWrap(_ point: Point) -> Bool { false }
-
 }
 
 extension Projection {
@@ -82,12 +78,10 @@ extension Projection {
   /// Projects an input point into a projected  point within `size` where it should be drawn, optionally
   /// accounting for zooming into
   /// a particular area of the map and adding insets around the map.
-  public func point(for point: Point, size: Size, zoomTo: Rect? = nil, insets: EdgeInsets = .zero, coordinateSystem: CoordinateSystem) -> (Point, Bool)? {
-    let wrap = self.willWrap(point)
-
+  public func point(for point: Point, size: Size, zoomTo: Rect? = nil, insets: EdgeInsets = .zero, coordinateSystem: CoordinateSystem) -> Point? {
     guard let projected = project(point) else { return nil }
 
-    return (translate(projected, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem), wrap)
+    return translate(projected, to: size, zoomTo: zoomTo, insets: insets, coordinateSystem: coordinateSystem)
   }
 
   /// Translates the projected `point` into a point within `size` where it should be drawn.

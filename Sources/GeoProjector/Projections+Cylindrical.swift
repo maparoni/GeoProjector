@@ -12,11 +12,6 @@ import Foundation
 import GeoJSONKit
 
 extension Projections {
-  
-  private static func willWrap(_ point: Point, reference: Point) -> Bool {
-    let adjusted = point.x - reference.x
-    return adjusted < .pi * -1 || adjusted > .pi
-  }
 
   private static func adjust(_ point: Point, reference: Point) -> Point {
     var adjusted = point.x - reference.x
@@ -59,10 +54,6 @@ extension Projections {
     
     public let mapBounds: MapBounds = .rectangle
 
-    public func willWrap(_ point: Point) -> Bool {
-      Projections.willWrap(point, reference: reference)
-    }
-
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
       return .init(
@@ -91,12 +82,6 @@ extension Projections {
       .init(width: .pi, height: 2 * .pi)
     
     public let mapBounds: MapBounds = .rectangle
-    
-    public func willWrap(_ point: Point) -> Bool {
-      return (point.x > .pi / 2  && point.y < 0)
-          || (point.x < -.pi / 2 && point.y < 0)
-          
-    }
 
     public func project(_ point: Point) -> Point? {
       return .init(
@@ -129,10 +114,6 @@ extension Projections {
       .init(width: 2 * .pi, height: 2 * .pi)
     
     public let mapBounds: MapBounds = .rectangle
-    
-    public func willWrap(_ point: Point) -> Bool {
-      Projections.willWrap(point, reference: reference)
-    }
 
     public func project(_ point: Point) -> Point? {
       var adjusted = Projections.adjust(point, reference: reference)
@@ -165,10 +146,6 @@ extension Projections {
       .init(width: 2 * .pi, height: 4)
     
     public let mapBounds: MapBounds = .rectangle
-    
-    public func willWrap(_ point: Point) -> Bool {
-      Projections.willWrap(point, reference: reference)
-    }
 
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)

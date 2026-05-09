@@ -35,10 +35,6 @@ extension Projections {
     public let mapBounds: MapBounds
     private let data: DanseijiData
 
-    public func willWrap(_ point: Point) -> Bool {
-      DanseijiCore.willWrap(point, reference: reference)
-    }
-
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
     }
@@ -62,10 +58,6 @@ extension Projections {
     public let projectionSize: Size
     public let mapBounds: MapBounds
     private let data: DanseijiData
-
-    public func willWrap(_ point: Point) -> Bool {
-      DanseijiCore.willWrap(point, reference: reference)
-    }
 
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
@@ -91,10 +83,6 @@ extension Projections {
     public let mapBounds: MapBounds
     private let data: DanseijiData
 
-    public func willWrap(_ point: Point) -> Bool {
-      DanseijiCore.willWrap(point, reference: reference)
-    }
-
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
     }
@@ -118,10 +106,6 @@ extension Projections {
     public let projectionSize: Size
     public let mapBounds: MapBounds
     private let data: DanseijiData
-
-    public func willWrap(_ point: Point) -> Bool {
-      DanseijiCore.willWrap(point, reference: reference)
-    }
 
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
@@ -147,10 +131,6 @@ extension Projections {
     public let mapBounds: MapBounds
     private let data: DanseijiData
 
-    public func willWrap(_ point: Point) -> Bool {
-      DanseijiCore.willWrap(point, reference: reference)
-    }
-
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)
     }
@@ -174,10 +154,6 @@ extension Projections {
     public let projectionSize: Size
     public let mapBounds: MapBounds
     private let data: DanseijiData
-
-    public func willWrap(_ point: Point) -> Bool {
-      DanseijiCore.willWrap(point, reference: reference)
-    }
 
     public func project(_ point: Point) -> Point? {
       DanseijiCore.project(DanseijiCore.adjusted(point, reference: reference), data: data)

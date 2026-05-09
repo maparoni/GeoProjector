@@ -10,11 +10,6 @@
 import Foundation
 
 extension Projections {
-  
-  private static func willWrap(_ point: Point, reference: Point) -> Bool {
-    let adjusted = point.x - reference.x
-    return adjusted < .pi * -1 || adjusted > .pi
-  }
 
   private static func adjust(_ point: Point, reference: Point) -> Point {
     var adjusted = point.x - reference.x
@@ -64,10 +59,6 @@ extension Projections {
     public let projectionSize: Size
     
     public let mapBounds: MapBounds
-    
-    public func willWrap(_ point: Point) -> Bool {
-      Projections.willWrap(point, reference: reference)
-    }
 
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
@@ -157,11 +148,7 @@ extension Projections {
         }
       self.mapBounds = .bezier(boundPoints)
     }
-    
-    public func willWrap(_ point: Point) -> Bool {
-      Projections.willWrap(point, reference: reference)
-    }
-    
+
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
       return Self.project(adjusted)
