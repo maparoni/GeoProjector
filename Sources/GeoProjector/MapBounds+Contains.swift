@@ -42,6 +42,14 @@ extension MapBounds {
   /// centred at `(0, 0)` with half-extents `(projectionSize.width / 2,
   /// projectionSize.height / 2)`.
   public func firstIntersection(from a: Point, to b: Point, projectionSize: Size) -> Point? {
+    allIntersections(from: a, to: b, projectionSize: projectionSize).first
+  }
+
+  /// Returns every crossing point of the segment from `a` to `b` with this
+  /// boundary, ordered by distance from `a`. May be empty (no crossings) or
+  /// contain two or more entries when a segment exits and re-enters via a
+  /// concave region of a `bezier` boundary.
+  public func allIntersections(from a: Point, to b: Point, projectionSize: Size) -> [Point] {
     let halfW = projectionSize.width  / 2
     let halfH = projectionSize.height / 2
 
@@ -53,19 +61,19 @@ extension MapBounds {
         (.init(x:  halfW, y:  halfH), .init(x: -halfW, y:  halfH)),
         (.init(x: -halfW, y:  halfH), .init(x: -halfW, y: -halfH)),
       ]
-      return MapBounds.firstSegmentHit(from: a, to: b, against: edges)
+      return MapBounds.allSegmentHits(from: a, to: b, against: edges)
 
     case .ellipse:
-      return MapBounds.firstEllipseHit(from: a, to: b, halfW: halfW, halfH: halfH)
+      return MapBounds.allEllipseHits(from: a, to: b, halfW: halfW, halfH: halfH)
 
     case .bezier(let pts):
-      guard pts.count >= 2 else { return nil }
+      guard pts.count >= 2 else { return [] }
       var edges: [(Point, Point)] = []
       edges.reserveCapacity(pts.count)
       for i in 0..<pts.count {
         edges.append((pts[i], pts[(i + 1) % pts.count]))
       }
-      return MapBounds.firstSegmentHit(from: a, to: b, against: edges)
+      return MapBounds.allSegmentHits(from: a, to: b, against: edges)
     }
   }
 
@@ -172,24 +180,30 @@ extension MapBounds {
     return Point(x: a.x + t * r.x, y: a.y + t * r.y)
   }
 
-  /// Returns the intersection of (a, b) with the listed edges that's closest to `a`.
-  private static func firstSegmentHit(from a: Point, to b: Point, against edges: [(Point, Point)]) -> Point? {
-    var best: Point? = nil
-    var bestDist = Double.infinity
+  /// Returns every intersection of (a, b) with the listed edges, ordered by
+  /// distance from `a`. Near-duplicate hits (e.g. a segment passing exactly
+  /// through a vertex registers twice) are collapsed.
+  private static func allSegmentHits(from a: Point, to b: Point, against edges: [(Point, Point)]) -> [Point] {
+    var hits: [(Point, Double)] = []
     for (c, d) in edges {
       guard let hit = segmentIntersection(a, b, c, d) else { continue }
       let dx = hit.x - a.x, dy = hit.y - a.y
-      let dist = dx * dx + dy * dy
-      if dist < bestDist {
-        bestDist = dist
-        best = hit
-      }
+      hits.append((hit, dx * dx + dy * dy))
     }
-    return best
+    hits.sort { $0.1 < $1.1 }
+    var unique: [Point] = []
+    for (p, _) in hits {
+      if let prev = unique.last, abs(prev.x - p.x) < 1e-9, abs(prev.y - p.y) < 1e-9 {
+        continue
+      }
+      unique.append(p)
+    }
+    return unique
   }
 
-  /// Returns the intersection of (a, b) with the unit ellipse closest to `a`.
-  private static func firstEllipseHit(from a: Point, to b: Point, halfW: Double, halfH: Double) -> Point? {
+  /// Returns every intersection of (a, b) with the unit ellipse, ordered by
+  /// distance from `a`.
+  private static func allEllipseHits(from a: Point, to b: Point, halfW: Double, halfH: Double) -> [Point] {
     // Normalise to unit circle: x' = x/halfW, y' = y/halfH.
     let ax = a.x / halfW, ay = a.y / halfH
     let bx = b.x / halfW, by = b.y / halfH
@@ -199,16 +213,17 @@ extension MapBounds {
     let B = 2 * (ax * dx + ay * dy)
     let C = ax * ax + ay * ay - 1
     let disc = B * B - 4 * A * C
-    guard disc >= 0, A > 1e-15 else { return nil }
+    guard disc >= 0, A > 1e-15 else { return [] }
     let sq = disc.squareRoot()
     let t1 = (-B - sq) / (2 * A)
     let t2 = (-B + sq) / (2 * A)
     let eps = 1e-12
-    let candidates = [t1, t2].filter { $0 >= -eps && $0 <= 1 + eps }
-    guard let t = candidates.min() else { return nil }
-    let nx = ax + t * dx
-    let ny = ay + t * dy
-    return Point(x: nx * halfW, y: ny * halfH)
+    let ts = [t1, t2].filter { $0 >= -eps && $0 <= 1 + eps }.sorted()
+    return ts.map { t in
+      let nx = ax + t * dx
+      let ny = ay + t * dy
+      return Point(x: nx * halfW, y: ny * halfH)
+    }
   }
 
   /// Maps a point on the rectangle perimeter to a parameter in `[0, 4)`,

@@ -48,7 +48,23 @@ extension Projections {
     public var mapBounds: MapBounds = .ellipse
     
     public func project(_ point: Point) -> Point? {
-      let k = self.k(point)
+      // Compute the angular distance `c` from `reference` to `point`. The
+      // raw `cos(c)` expression can fall slightly below −1 in floating point
+      // for points near the antipode, which would make `acos` return NaN —
+      // clamp to `[-1, 1]` first.
+      let cosC = max(-1.0, min(1.0, sin(reference.y) * sin(point.y)
+                                    + cos(reference.y) * cos(point.y)
+                                    * cos(point.x - reference.x)))
+      let c = acos(cosC)
+      // The projection is singular at the antipode (`c = π`), where
+      // `k = c / sin(c)` blows up. Numerical instability also corrupts the
+      // result for points within roughly 1e-5° of the antipode — `r` no
+      // longer approximates `c`, so the projected point lands at an arbitrary
+      // location inside the disk. Reject the singular zone so the boundary
+      // splitter handles it as an edge crossing.
+      guard c < .pi - 1e-6 else { return nil }
+      // At the reference itself `c = 0` and `k = c / sin(c) → 1`.
+      let k = c < 1e-15 ? 1 : c / sin(c)
       return .init(
         x: k * cos(point.y) * sin(point.x - reference.x),
         y: k * (cos(reference.y) * sin(point.y) - sin(reference.y) * cos(point.y) * cos(point.x - reference.x))
