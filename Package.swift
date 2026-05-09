@@ -14,6 +14,9 @@ let package = Package(
       name: "GeoProjector",
       targets: ["GeoProjector"]),
     .library(
+      name: "GeoProjectorDanseiji",
+      targets: ["GeoProjectorDanseiji"]),
+    .library(
       name: "GeoDrawer",
       targets: ["GeoDrawer"]),
   ],
@@ -34,6 +37,20 @@ let package = Package(
       name: "GeoProjectorTests",
       dependencies: [
         "GeoProjector",
+      ]),
+    .target(
+      name: "GeoProjectorDanseiji",
+      dependencies: [
+        "GeoProjector",
+        .product(name: "GeoJSONKit", package: "geojsonkit"),
+      ],
+      resources: [
+        .copy("Resources"),
+      ]),
+    .testTarget(
+      name: "GeoProjectorDanseijiTests",
+      dependencies: [
+        "GeoProjectorDanseiji",
       ]),
     .target(
       name: "GeoDrawer",

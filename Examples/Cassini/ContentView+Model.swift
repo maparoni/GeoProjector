@@ -13,9 +13,10 @@ import SwiftUI
 
 import GeoJSONKit
 import GeoDrawer
+import GeoProjectorDanseiji
 
 extension ContentView {
-  
+
   enum ProjectionType: String, CaseIterable, Identifiable {
     case equirectangular
     case cassini
@@ -25,7 +26,13 @@ extension ContentView {
     case naturalEarth
     case orthographic
     case azimuthal
-    
+    case danseijiI
+    case danseijiII
+    case danseijiIII
+    case danseijiIV
+    case danseijiV
+    case danseijiVI
+
     var id: String { rawValue }
   }
   
@@ -92,6 +99,18 @@ extension ContentView {
         projection = Projections.Orthographic(reference: reference)
       case .azimuthal:
         projection = Projections.AzimuthalEquidistant(reference: reference)
+      case .danseijiI:
+        projection = Projections.DanseijiI(reference: reference)
+      case .danseijiII:
+        projection = Projections.DanseijiII(reference: reference)
+      case .danseijiIII:
+        projection = Projections.DanseijiIII(reference: reference)
+      case .danseijiIV:
+        projection = Projections.DanseijiIV(reference: reference)
+      case .danseijiV:
+        projection = Projections.DanseijiV(reference: reference)
+      case .danseijiVI:
+        projection = Projections.DanseijiVI(reference: reference)
       }
     }
     

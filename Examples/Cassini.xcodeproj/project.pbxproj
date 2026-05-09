@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		3A0743C52C782366009403F8 /* GeoDrawer in Frameworks */ = {isa = PBXBuildFile; productRef = 3A0743C42C782366009403F8 /* GeoDrawer */; };
 		3A0743C72C782366009403F8 /* GeoProjector in Frameworks */ = {isa = PBXBuildFile; productRef = 3A0743C62C782366009403F8 /* GeoProjector */; };
+		3A0743C92C782366009403F8 /* GeoProjectorDanseiji in Frameworks */ = {isa = PBXBuildFile; productRef = 3A0743C82C782366009403F8 /* GeoProjectorDanseiji */; };
 		3A1B27CE29448ADA00271603 /* CassiniApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B27CD29448ADA00271603 /* CassiniApp.swift */; };
 		3A1B27D029448ADA00271603 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1B27CF29448ADA00271603 /* ContentView.swift */; };
 		3A1B27D229448ADB00271603 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A1B27D129448ADB00271603 /* Assets.xcassets */; };
@@ -34,6 +35,7 @@
 			files = (
 				3A0743C52C782366009403F8 /* GeoDrawer in Frameworks */,
 				3A0743C72C782366009403F8 /* GeoProjector in Frameworks */,
+				3A0743C92C782366009403F8 /* GeoProjectorDanseiji in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -105,6 +107,7 @@
 			packageProductDependencies = (
 				3A0743C42C782366009403F8 /* GeoDrawer */,
 				3A0743C62C782366009403F8 /* GeoProjector */,
+				3A0743C82C782366009403F8 /* GeoProjectorDanseiji */,
 			);
 			productName = Cassini;
 			productReference = 3A1B27CA29448ADA00271603 /* Cassini.app */;
@@ -413,6 +416,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 3A0743C32C782366009403F8 /* XCRemoteSwiftPackageReference "GeoProjector" */;
 			productName = GeoProjector;
+		};
+		3A0743C82C782366009403F8 /* GeoProjectorDanseiji */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A0743C32C782366009403F8 /* XCRemoteSwiftPackageReference "GeoProjector" */;
+			productName = GeoProjectorDanseiji;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
