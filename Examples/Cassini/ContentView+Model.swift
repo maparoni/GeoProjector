@@ -25,8 +25,24 @@ extension ContentView {
     case naturalEarth
     case orthographic
     case azimuthal
-    
+
     var id: String { rawValue }
+
+    /// Whether the projection's output depends on the reference latitude.
+    var usesReferenceLatitude: Bool {
+      switch self {
+      case .orthographic, .azimuthal: return true
+      case .equirectangular, .cassini, .mercator, .gallPeters, .equalEarth, .naturalEarth: return false
+      }
+    }
+
+    /// Whether the projection's output depends on the reference longitude.
+    var usesReferenceLongitude: Bool {
+      switch self {
+      case .cassini: return false
+      case .equirectangular, .mercator, .gallPeters, .equalEarth, .naturalEarth, .orthographic, .azimuthal: return true
+      }
+    }
   }
   
   struct Layer: Identifiable {
