@@ -10,7 +10,7 @@ jobs:
   spm_macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build
         run: swift build
       - name: Test
@@ -20,11 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        swift: ["6.0", "5.10"]
+        swift: ["6.2", "6.0", "5.10"]
     container:
       image: swift:${{ matrix.swift }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build
         run: swift build
       - name: Test
@@ -33,21 +33,21 @@ jobs:
   xcode_macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build
         run: xcodebuild build -scheme GeoProjector-Package -destination 'platform=macOS'
 
   xcode_ios:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build
-        run: xcodebuild build -scheme GeoProjector-Package -destination 'name=iPhone 14' -sdk iphoneos
+        run: xcodebuild build -scheme GeoProjector-Package -destination 'name=iPhone 17' -sdk iphoneos
 
   cassini_macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build
         run: |
           cd Examples
@@ -56,8 +56,8 @@ jobs:
   cassini_ios:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build
         run: |
           cd Examples
-          xcodebuild build -scheme 'Cassini' -destination 'platform=iOS Simulator,name=iPhone 14' -sdk iphonesimulator
+          xcodebuild build -scheme 'Cassini' -destination 'platform=iOS Simulator,name=iPhone 17' -sdk iphonesimulator
