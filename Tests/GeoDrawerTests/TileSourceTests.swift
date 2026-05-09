@@ -12,6 +12,12 @@
 import Testing
 import Foundation
 
+#if canImport(CoreGraphics) && canImport(ImageIO) && canImport(UniformTypeIdentifiers)
+import CoreGraphics
+import ImageIO
+import UniformTypeIdentifiers
+#endif
+
 @testable import GeoDrawer
 import GeoProjector
 
@@ -71,6 +77,58 @@ struct TileSourceTests {
     #expect(source.minZoom == 0)
     #expect(source.maxZoom == 3)
   }
+
+#if canImport(CoreGraphics) && canImport(ImageIO) && canImport(UniformTypeIdentifiers)
+  @Test func coreGraphicsDecoder_roundTripsPNG() throws {
+    // Build a 4×4 image: top half red, bottom half blue.
+    let w = 4, h = 4
+    let bytesPerRow = w * 4
+    var raw = [UInt8](repeating: 0, count: bytesPerRow * h)
+    for y in 0..<h {
+      for x in 0..<w {
+        let off = y * bytesPerRow + x * 4
+        if y < 2 {
+          raw[off + 0] = 255; raw[off + 3] = 255  // red
+        } else {
+          raw[off + 2] = 255; raw[off + 3] = 255  // blue
+        }
+      }
+    }
+
+    let cs = CGColorSpaceCreateDeviceRGB()
+    let context = try #require(raw.withUnsafeMutableBufferPointer { ptr -> CGContext? in
+      CGContext(
+        data: ptr.baseAddress, width: w, height: h,
+        bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+        space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+      )
+    })
+    let cgImage = try #require(context.makeImage())
+
+    let pngData = NSMutableData()
+    let dest = try #require(CGImageDestinationCreateWithData(
+      pngData, UTType.png.identifier as CFString, 1, nil
+    ))
+    CGImageDestinationAddImage(dest, cgImage, nil)
+    #expect(CGImageDestinationFinalize(dest))
+
+    let tile = try #require(try TileImage.coreGraphicsDecoder(pngData as Data))
+    #expect(tile.width == 4)
+    #expect(tile.height == 4)
+
+    // Top row (y=0) should be red, bottom row (y=3) should be blue.
+    #expect(tile.pixels[0 * bytesPerRow + 0 * 4 + 0] == 255)
+    #expect(tile.pixels[0 * bytesPerRow + 0 * 4 + 2] == 0)
+    #expect(tile.pixels[3 * bytesPerRow + 0 * 4 + 0] == 0)
+    #expect(tile.pixels[3 * bytesPerRow + 0 * 4 + 2] == 255)
+  }
+
+  @Test func coreGraphicsDecoder_returnsNilForGarbage() throws {
+    let garbage = Data([0x00, 0x01, 0x02, 0x03, 0x04, 0x05])
+    let result = try TileImage.coreGraphicsDecoder(garbage)
+    #expect(result == nil)
+  }
+#endif
 
   @Test func contains_rejectsOutOfRangeZoomAndCoords() {
     let source = StaticTileSource(

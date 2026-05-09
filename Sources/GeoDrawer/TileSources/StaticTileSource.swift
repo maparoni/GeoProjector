@@ -9,7 +9,7 @@
 
 import Foundation
 
-import GeoProjector
+@preconcurrency import GeoProjector
 
 /// A `TileSource` backed by an in-memory dictionary of pre-decoded tiles.
 ///

@@ -9,7 +9,7 @@
 
 import Foundation
 
-import GeoProjector
+@preconcurrency import GeoProjector
 
 /// Identifies a single tile in an XYZ ("slippy map") tile scheme.
 ///
