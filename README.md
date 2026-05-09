@@ -142,7 +142,7 @@ or render to SVG (`GeoDrawer.drawSVG(_:)`).
 
 ## Credits
 
-The code in this repo is all written by myself, [Adrian Schönig](https://github.com/nighthawk),
+The code in this repo is written by myself, [Adrian Schönig](https://github.com/nighthawk), along recently with help from [Claude](https://claude.ai)
 but it wouldn't have been able to do this so smoothly without the help of these
 precious resources:
 
