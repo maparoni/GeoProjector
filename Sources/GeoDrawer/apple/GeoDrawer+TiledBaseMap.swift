@@ -128,10 +128,20 @@ extension GeoDrawer {
   /// every needed tile is either resolved or known-missing. Throws on
   /// transport / decode errors; callers can choose to render partial
   /// results by ignoring the error.
-  func prefetchTiles(for tiledBaseMap: TiledBaseMap) async throws {
+  ///
+  /// Each time a tile lands, the drawer's *rendered* tiled-raster cache
+  /// is invalidated for the source — so the next render uses the new
+  /// tile — and `onTileLoaded` fires (on the task's executor) so the
+  /// caller can schedule a redraw. The caller is responsible for
+  /// debouncing the resulting redraws if tiles arrive in a tight burst.
+  func prefetchTiles(
+    for tiledBaseMap: TiledBaseMap,
+    onTileLoaded: (@Sendable () -> Void)? = nil
+  ) async throws {
     let needed = tilesNeeded(for: tiledBaseMap)
     let source = tiledBaseMap.source
     let sourceID = source.tileSourceID
+    let rasterCache = baseMapCache
 
     try await withThrowingTaskGroup(of: (TileKey, TileImage?).self) { group in
       for tileKey in needed {
@@ -146,6 +156,10 @@ extension GeoDrawer {
       for try await (tileKey, tile) in group {
         if let tile {
           tileCache.set(TileCacheKey(sourceID: sourceID, tileKey: tileKey), tile)
+          // The cached rendered raster had partial tile coverage; drop it
+          // so the next draw re-renders with the newly-arrived tile.
+          rasterCache.invalidateTiled(matching: sourceID)
+          onTileLoaded?()
         }
       }
     }

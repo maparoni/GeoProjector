@@ -105,14 +105,36 @@ public class GeoMapView: NSView {
     }
   }
 
+  private var pendingTiledRerender: Task<Void, Never>?
+
+  /// Schedule a background re-render of the tiled raster for `tiled` and
+  /// then a redraw, debounced so a burst of tile arrivals collapses into
+  /// a single render rather than thrashing the main thread.
+  private func scheduleTiledRerender(for tiled: GeoDrawer.TiledBaseMap) {
+    let coord = CoordinateSystem.bottomLeft
+    pendingTiledRerender?.cancel()
+    pendingTiledRerender = Task.detached(priority: .userInitiated) { [weak self] in
+      try? await Task.sleep(nanoseconds: 150_000_000)
+      guard let self, !Task.isCancelled else { return }
+      _ = self.drawer.renderedTiledBaseMap(tiled, coordinateSystem: coord)
+      if Task.isCancelled { return }
+      await MainActor.run {
+        self.setNeedsDisplay(self.bounds)
+      }
+    }
+  }
+
   public override func draw(_ rect: NSRect) {
-    // Don't draw if we're busy as this will flicker weirdly
+    // Don't draw if we're busy — rendering with the previously-projected
+    // content but the *new* drawer (post-projection-change) produced a
+    // buggy hybrid where vectors lived in the old projection space while
+    // base-map rasters rendered against the new one and got stale-cached
+    // with partial tile coverage. Hold the prior frame on screen instead;
+    // the new render lands once projection completes.
     let projected: [GeoDrawer.ProjectedContent]
     switch projectProgress {
-    case .busy(_, .some(let previous)):
-      projected = previous
-    case .busy(_, .none), .idle:
-      return // Don't update drawing; will get called again instead when finished
+    case .busy, .idle:
+      return
     case .finished(let finished):
       projected = finished
     }
@@ -158,15 +180,13 @@ public class GeoMapView: NSView {
       guard let self else { return }
       do {
         let projected = try await drawer.projectInParallel(contents, coordinateSystem: .bottomLeft)
-        // Pre-fetch tiled base-map tiles, then pre-warm both raster
-        // caches. A cold miss inside `draw(_:)` would block the run loop
-        // for either the network round-trip or the per-pixel sweep.
-        for content in projected {
-          if Task.isCancelled { break }
-          if case let .tiledBaseMap(tiled) = content {
-            try? await drawer.prefetchTiles(for: tiled)
-          }
-        }
+        if Task.isCancelled { return }
+
+        // Pre-warm the raster caches off the main thread using whatever
+        // tiles are already in the shared `tileCache`. Tiles from prior
+        // projections cover the geographic overlap with the new one, so
+        // the initial render is fast and visually meaningful for the
+        // common projection-switch case.
         for content in projected {
           if Task.isCancelled { break }
           switch content {
@@ -182,6 +202,24 @@ public class GeoMapView: NSView {
         await MainActor.run {
           self.projectProgress = .finished(projected)
           self.setNeedsDisplay(self.bounds)
+        }
+
+        // Now fetch any tiles the new projection needs that the cache is
+        // missing. Each tile arrival invalidates the rendered-raster cache
+        // and triggers a debounced background re-render, so the user sees
+        // tiles fill in progressively rather than waiting on the full set.
+        await withTaskGroup(of: Void.self) { group in
+          for content in projected {
+            if Task.isCancelled { break }
+            guard case let .tiledBaseMap(tiled) = content else { continue }
+            group.addTask {
+              try? await self.drawer.prefetchTiles(for: tiled) {
+                Task { @MainActor in
+                  self.scheduleTiledRerender(for: tiled)
+                }
+              }
+            }
+          }
         }
       } catch {
         assert(error is CancellationError)

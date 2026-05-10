@@ -25,7 +25,7 @@ extension GeoDrawer {
   ///
   /// Tiles are pre-fetched on the same async path as the projection
   /// pre-warm — see `GeoMapView.invalidateProjectedContents`.
-  public struct TiledBaseMap {
+  public struct TiledBaseMap: @unchecked Sendable {
 
     /// How the renderer chooses the zoom level to fetch tiles at.
     public enum Zoom: Hashable {

@@ -65,6 +65,15 @@ extension GeoDrawer {
       defer { lock.unlock() }
       tiledEntries[key] = image
     }
+
+    /// Drops every rendered tiled raster whose key matches `sourceID`.
+    /// Called when new tiles arrive for that source — the prior render
+    /// has stale tile coverage and must be recomputed.
+    func invalidateTiled(matching sourceID: AnyHashable) {
+      lock.lock()
+      defer { lock.unlock() }
+      tiledEntries = tiledEntries.filter { $0.key.sourceID != sourceID }
+    }
   }
 
   /// Rasterises the base map at the drawer's canvas size, using the
