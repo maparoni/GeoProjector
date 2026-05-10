@@ -66,6 +66,12 @@ struct ContentView_macOS: View {
               lockedCoord = coord
             }
           }
+          .overlay(alignment: .bottomTrailing) {
+            if let attribution = model.baseMapMode.attribution {
+              AttributionLabel(text: attribution)
+                .padding(8)
+            }
+          }
         }
         .padding()
 
@@ -161,7 +167,13 @@ struct ContentView_iOS: View {
         mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
         mapOutline: colorScheme == .dark ? .white : .black
       )
-      
+      .overlay(alignment: .bottomTrailing) {
+        if let attribution = model.baseMapMode.attribution {
+          AttributionLabel(text: attribution)
+            .padding(8)
+        }
+      }
+
       ScrollView {
         OptionsView(model: model)
       }
@@ -170,6 +182,20 @@ struct ContentView_iOS: View {
   }
 }
 #endif
+
+struct AttributionLabel: View {
+  let text: String
+
+  var body: some View {
+    Text(text)
+      .font(.caption2)
+      .padding(.horizontal, 6)
+      .padding(.vertical, 3)
+      .background(Color.black.opacity(0.6))
+      .foregroundStyle(.white)
+      .clipShape(RoundedRectangle(cornerRadius: 4))
+  }
+}
 
 struct OptionsView: View {
   @ObservedObject var model: ContentView.Model
@@ -197,7 +223,13 @@ struct OptionsView: View {
 #endif
 
       GroupBox("Base map") {
-        Toggle("Show Blue Marble", isOn: $model.showBaseMap)
+        Picker("Base map", selection: $model.baseMapMode) {
+          ForEach(ContentView.BaseMapMode.allCases) {
+            Text($0.label).tag($0)
+          }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
       }
 
       GroupBox("Reference") {

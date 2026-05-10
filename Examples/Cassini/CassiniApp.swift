@@ -30,10 +30,10 @@ struct CassiniApp: App {
     // raster on its own there, with the vector continents hidden.
 #if os(macOS)
     let continentsVisible = true
-    let showBaseMap = false
+    let baseMapMode = ContentView.BaseMapMode.none
 #else
     let continentsVisible = false
-    let showBaseMap = true
+    let baseMapMode = ContentView.BaseMapMode.blueMarble
 #endif
     let continents = ContentView.Layer(
       name: "Continents",
@@ -44,7 +44,7 @@ struct CassiniApp: App {
       color: CassiniApp.Colors.continents.cgColor,
       visible: continentsVisible
     )
-    return ContentView(model: .init(layers: [continents], showBaseMap: showBaseMap))
+    return ContentView(model: .init(layers: [continents], baseMapMode: baseMapMode))
   }
 }
 
