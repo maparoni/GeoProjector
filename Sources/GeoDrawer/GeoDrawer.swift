@@ -268,7 +268,7 @@ extension GeoDrawer {
 
   func projectInParallel(_ contents: [Content], coordinateSystem: CoordinateSystem) async throws -> [ProjectedContent] {
     try await withThrowingTaskGroup(of: [OffsettedElement<ProjectedContent>].self) { group in
-      let chunks = Array(contents.enumerated()).chunks(ofCount: 25)
+      let chunks = Array(contents.enumerated()).chunks(ofCount: 5)
       for chunk in chunks {
         let added = group.addTaskUnlessCancelled {
           await Task {

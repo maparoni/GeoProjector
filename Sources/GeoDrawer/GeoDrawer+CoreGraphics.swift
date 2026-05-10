@@ -287,4 +287,207 @@ extension Point {
   }
 }
 
+// MARK: - CG-specific projected types
+
+extension GeoDrawer {
+
+  struct CGProjectedLine {
+    let path: CGPath
+  }
+
+  struct CGProjectedPolygon {
+    let path: CGPath
+    let invert: Bool
+  }
+
+  enum CGProjectedContent {
+    case line([CGProjectedLine], stroke: CGColor, strokeWidth: Double)
+    case polygon([CGProjectedPolygon], fill: CGColor, stroke: CGColor?, strokeWidth: Double)
+    case circle(Point, radius: Double, fill: CGColor, stroke: CGColor?, strokeWidth: Double)
+    case baseMap(BaseMap)
+  }
+}
+
+// MARK: - CG projection
+
+extension GeoDrawer {
+
+  func projectCG(_ content: Content, coordinateSystem: CoordinateSystem) -> CGProjectedContent? {
+    switch content {
+    case let .line(line, stroke, strokeWidth):
+      let lines = project(line, coordinateSystem: coordinateSystem)
+      let cgLines = lines.compactMap { projected -> CGProjectedLine? in
+        guard !projected.points.isEmpty else { return nil }
+        return CGProjectedLine(path: Self.cgPath(for: projected.points, close: false))
+      }
+      return .line(cgLines, stroke: stroke, strokeWidth: strokeWidth)
+
+    case let .polygon(polygon, fill, stroke, strokeWidth):
+      let polygons = project(polygon, coordinateSystem: coordinateSystem)
+      let cgPolygons = polygons.map { projected in
+        CGProjectedPolygon(
+          path: Self.cgPath(exterior: projected.exterior, interiors: projected.interiors),
+          invert: projected.invert
+        )
+      }
+      return .polygon(cgPolygons, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
+
+    case let .circle(center, radius, fill, stroke, strokeWidth):
+      guard let point = converter(center, coordinateSystem) else { return nil }
+      return .circle(point, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
+
+    case let .baseMap(baseMap):
+      return .baseMap(baseMap)
+    }
+  }
+
+  private static func cgPath(for points: [Point], close: Bool) -> CGPath {
+    let path = CGMutablePath()
+    guard !points.isEmpty else { return path }
+    path.move(to: points[0].cgPoint)
+    for point in points[1...] {
+      path.addLine(to: point.cgPoint)
+    }
+    if close { path.closeSubpath() }
+    return path
+  }
+
+  private static func cgPath(exterior: [Point], interiors: [[Point]]) -> CGPath {
+    let path = CGMutablePath()
+    guard !exterior.isEmpty else { return path }
+    path.move(to: exterior[0].cgPoint)
+    for point in exterior[1...] {
+      path.addLine(to: point.cgPoint)
+    }
+    path.closeSubpath()
+    for interior in interiors {
+      guard !interior.isEmpty else { continue }
+      path.move(to: interior[0].cgPoint)
+      for point in interior[1...] {
+        path.addLine(to: point.cgPoint)
+      }
+      path.closeSubpath()
+    }
+    return path
+  }
+
+  func projectInParallelCG(_ contents: [Content], coordinateSystem: CoordinateSystem) async throws -> [CGProjectedContent] {
+    try await withThrowingTaskGroup(of: [(Int, CGProjectedContent)].self) { group in
+      let chunks = Array(contents.enumerated()).chunks(ofCount: 5)
+      for chunk in chunks {
+        let added = group.addTaskUnlessCancelled {
+          await Task {
+            chunk.compactMap { (offset, content) -> (Int, CGProjectedContent)? in
+              guard !Task.isCancelled else { return nil }
+              guard let projected = projectCG(content, coordinateSystem: coordinateSystem) else { return nil }
+              return (offset, projected)
+            }
+          }.value
+        }
+        if !added { throw CancellationError() }
+      }
+      let unsorted = try await group.reduce(into: [(Int, CGProjectedContent)]()) { $0.append(contentsOf: $1) }
+      return unsorted.sorted { $0.0 < $1.0 }.map(\.1)
+    }
+  }
+}
+
+// MARK: - CG drawing
+
+extension GeoDrawer {
+
+  func draw(_ line: CGProjectedLine, strokeColor: CGColor, strokeWidth: Double, in context: CGContext) {
+    context.addPath(line.path)
+    context.setStrokeColor(strokeColor)
+    context.setLineWidth(strokeWidth)
+    context.setLineCap(.round)
+    context.setLineJoin(.round)
+    context.strokePath()
+  }
+
+  func draw(_ polygon: CGProjectedPolygon, fillColor: CGColor?, strokeColor: CGColor?, strokeWidth: Double, in context: CGContext) {
+    if let fillColor {
+      if polygon.invert {
+        // TODO: This doesn't actually invert. Would be nice to do that later.
+        context.addPath(polygon.path)
+        context.setStrokeColor(fillColor)
+        context.setLineWidth(strokeWidth)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        context.strokePath()
+      } else {
+        context.addPath(polygon.path)
+        context.setFillColor(fillColor)
+        context.fillPath(using: .evenOdd)
+      }
+    }
+    if let strokeColor {
+      context.addPath(polygon.path)
+      context.setStrokeColor(strokeColor)
+      context.setLineWidth(strokeWidth)
+      context.setLineCap(.round)
+      context.setLineJoin(.round)
+      context.strokePath()
+    }
+  }
+
+  func draw(_ contents: [CGProjectedContent], mapBackground: CGColor?, mapOutline: CGColor?, mapBackdrop: CGColor?, in context: CGContext) {
+    let cgSize = CGSize(width: size.width, height: size.height)
+    let bounds = CGRect(origin: .zero, size: cgSize)
+
+    if let mapBackdrop {
+      context.setFillColor(mapBackdrop)
+      context.addPath(.init(rect: bounds, transform: nil))
+      context.fillPath()
+    }
+
+    if let mapBackground, let projection {
+      draw(projection.mapBounds, fillColor: mapBackground, in: context)
+    }
+
+    if let projection {
+      let clipPath = mapBoundsPath(projection.mapBounds)
+      var clipped = false
+      for content in contents {
+        if case .baseMap(let baseMap) = content {
+          guard let raster = renderedBaseMap(baseMap, coordinateSystem: coordinateSystem) else { continue }
+          if !clipped, let clipPath {
+            context.saveGState()
+            context.addPath(clipPath)
+            context.clip()
+            clipped = true
+          }
+          context.draw(raster, in: bounds)
+        }
+      }
+      if clipped { context.restoreGState() }
+    }
+
+    for content in contents {
+      switch content {
+      case .circle, .baseMap:
+        break
+      case let .line(lines, stroke, strokeWidth):
+        for line in lines {
+          draw(line, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
+        }
+      case let .polygon(polygons, fill, stroke, strokeWidth):
+        for polygon in polygons {
+          draw(polygon, fillColor: fill, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
+        }
+      }
+    }
+
+    if let mapOutline, let projection {
+      draw(projection.mapBounds, strokeColor: mapOutline, in: context)
+    }
+
+    for content in contents {
+      if case let .circle(center, radius, fill, stroke, strokeWidth) = content {
+        drawCircle(center, radius: CGFloat(radius), fillColor: fill, strokeColor: stroke, strokeWidth: strokeWidth, in: context)
+      }
+    }
+  }
+}
+
 #endif

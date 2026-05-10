@@ -90,7 +90,7 @@ public class GeoMapView: NSView {
 
   public override func draw(_ rect: NSRect) {
     // Don't draw if we're busy as this will flicker weirdly
-    let projected: [GeoDrawer.ProjectedContent]
+    let projected: [GeoDrawer.CGProjectedContent]
     switch projectProgress {
     case .busy(_, .some(let previous)):
       projected = previous
@@ -118,8 +118,8 @@ public class GeoMapView: NSView {
   // MARK: - Performance
 
   enum ProjectionProgress {
-    case finished([GeoDrawer.ProjectedContent])
-    case busy(Task<Void, Never>, previously: [GeoDrawer.ProjectedContent]?)
+    case finished([GeoDrawer.CGProjectedContent])
+    case busy(Task<Void, Never>, previously: [GeoDrawer.CGProjectedContent]?)
     case idle
   }
 
@@ -140,7 +140,7 @@ public class GeoMapView: NSView {
     projectProgress = .busy(Task(priority: .high) { [weak self] in
       guard let self else { return }
       do {
-        let projected = try await drawer.projectInParallel(contents, coordinateSystem: .bottomLeft)
+        let projected = try await drawer.projectInParallelCG(contents, coordinateSystem: .bottomLeft)
         // Pre-warm the base-map raster cache off the main thread. A cold
         // miss inside `draw(_:)` would block the run loop for the duration
         // of the per-pixel inverse-projection sweep.
