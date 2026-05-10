@@ -18,14 +18,16 @@ extension GeoDrawer {
   /// Resolves a `TiledBaseMap.Zoom` to an integer level using this drawer's
   /// canvas size. For `.auto`, picks the level whose source-canvas pixel
   /// density most closely matches the output canvas (via
-  /// `log2(max(canvas) / tileSize)`), clamped to the source's range.
+  /// `log2(max(canvas) * pixelDensity / tileSize)`), clamped to the source's
+  /// range. `pixelDensity` is included so Retina displays fetch the next
+  /// zoom level up rather than upscaling lower-res tiles.
   func resolvedZoom(_ zoom: TiledBaseMap.Zoom, source: any TileSource) -> Int {
     switch zoom {
     case .fixed(let z):
       return z
     case .auto:
-      let canvasMax = max(size.width, size.height)
-      let raw = log2(max(canvasMax, 1) / Double(source.tileSize))
+      let canvasMaxPixels = max(size.width, size.height) * pixelDensity
+      let raw = log2(max(canvasMaxPixels, 1) / Double(source.tileSize))
       let z = Int(raw.rounded())
       return min(max(z, source.minZoom), source.maxZoom)
     }
@@ -155,11 +157,14 @@ extension GeoDrawer {
   /// `(projection, size, zoomTo, insets)` tuple, which is captured by
   /// the cache instance's lifetime. Uses the *resolved* zoom level so
   /// `.auto` and `.fixed(z)` that pick the same level share a slot.
+  /// `pixelDensityMilli` is included so a raster rendered at one
+  /// backing scale isn't served from cache at another.
   struct TiledRasterCacheKey: Hashable {
     let sourceID: AnyHashable
     let resolvedZoom: Int
     let sampling: BaseMap.Sampling
     let alphaMilli: Int
+    let pixelDensityMilli: Int
   }
 
   /// Renders the tiled base map at the drawer's canvas size using the
@@ -175,7 +180,8 @@ extension GeoDrawer {
       sourceID: tiledBaseMap.source.tileSourceID,
       resolvedZoom: z,
       sampling: tiledBaseMap.sampling,
-      alphaMilli: Int((tiledBaseMap.alpha * 1000).rounded())
+      alphaMilli: Int((tiledBaseMap.alpha * 1000).rounded()),
+      pixelDensityMilli: Int((pixelDensity * 1000).rounded())
     )
     if let cached = baseMapCache.getTiled(cacheKey) {
       return cached
@@ -188,8 +194,12 @@ extension GeoDrawer {
   private func renderTiledBaseMap(_ tiledBaseMap: TiledBaseMap, zoom z: Int) -> CGImage? {
     guard let projection else { return nil }
 
-    let width = max(1, Int(size.width.rounded()))
-    let height = max(1, Int(size.height.rounded()))
+    // Render at backing-store resolution so the result downscales (rather
+    // than upscales) when CG composites it onto the destination context.
+    let pointWidth = size.width
+    let pointHeight = size.height
+    let width = max(1, Int((pointWidth * pixelDensity).rounded()))
+    let height = max(1, Int((pointHeight * pixelDensity).rounded()))
     let bytesPerRow = width * 4
     let totalBytes = bytesPerRow * height
 
@@ -206,6 +216,7 @@ extension GeoDrawer {
       buffer: buffer,
       width: width,
       bytesPerRow: bytesPerRow,
+      pixelDensity: pixelDensity,
       drawerSize: size,
       drawerZoom: zoomTo,
       drawerInsets: insets,
@@ -256,6 +267,7 @@ private struct TiledRasterContext: @unchecked Sendable {
   let buffer: UnsafeMutablePointer<UInt8>
   let width: Int
   let bytesPerRow: Int
+  let pixelDensity: Double
   let drawerSize: Size
   let drawerZoom: Rect?
   let drawerInsets: EdgeInsets
@@ -274,13 +286,15 @@ private struct TiledRasterContext: @unchecked Sendable {
   let wrapsLongitudinally: Bool
 
   func renderRow(_ py: Int) {
-    let pyD = Double(py) + 0.5
+    // Convert pixel-space row to point-space so the projection's screen
+    // transform (which operates in points) maps correctly.
+    let pyPoints = (Double(py) + 0.5) / pixelDensity
 
     for px in 0..<width {
-      let pxD = Double(px) + 0.5
+      let pxPoints = (Double(px) + 0.5) / pixelDensity
 
       let projected = projection.untranslate(
-        Point(x: pxD, y: pyD),
+        Point(x: pxPoints, y: pyPoints),
         from: drawerSize, zoomTo: drawerZoom, insets: drawerInsets,
         coordinateSystem: .topLeft
       )

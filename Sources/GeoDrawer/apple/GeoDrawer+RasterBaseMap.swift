@@ -18,16 +18,19 @@ extension GeoDrawer {
   /// Identifier for a cached raster — independent of the drawer's
   /// `(projection, size, zoomTo, insets)` tuple, which is captured implicitly
   /// by the cache instance's lifetime. Two `BaseMap` values that produce the
-  /// same raster (same source image, sampling, alpha) share a cache slot.
+  /// same raster (same source image, sampling, alpha, pixel density) share a
+  /// cache slot.
   struct BaseMapCacheKey: Hashable {
     let imageID: ObjectIdentifier
     let sampling: BaseMap.Sampling
     let alphaMilli: Int
+    let pixelDensityMilli: Int
 
-    init(_ baseMap: BaseMap) {
+    init(_ baseMap: BaseMap, pixelDensity: Double) {
       self.imageID = ObjectIdentifier(baseMap.image)
       self.sampling = baseMap.sampling
       self.alphaMilli = Int((baseMap.alpha * 1000).rounded())
+      self.pixelDensityMilli = Int((pixelDensity * 1000).rounded())
     }
   }
 
@@ -81,7 +84,7 @@ extension GeoDrawer {
   /// responsible for counter-flipping the CTM on UIKit so the raster's
   /// row 0 lands at the visual top in either coordinate system.
   func renderedBaseMap(_ baseMap: BaseMap, coordinateSystem _: CoordinateSystem) -> CGImage? {
-    let key = BaseMapCacheKey(baseMap)
+    let key = BaseMapCacheKey(baseMap, pixelDensity: pixelDensity)
     if let cached = baseMapCache.get(key) {
       return cached
     }
@@ -95,8 +98,10 @@ extension GeoDrawer {
   private func renderBaseMap(_ baseMap: BaseMap) -> CGImage? {
     guard let projection else { return nil }
 
-    let width = max(1, Int(size.width.rounded()))
-    let height = max(1, Int(size.height.rounded()))
+    let pointWidth = size.width
+    let pointHeight = size.height
+    let width = max(1, Int((pointWidth * pixelDensity).rounded()))
+    let height = max(1, Int((pointHeight * pixelDensity).rounded()))
     let bytesPerRow = width * 4
     let totalBytes = bytesPerRow * height
 
@@ -115,6 +120,7 @@ extension GeoDrawer {
       buffer: buffer,
       width: width,
       bytesPerRow: bytesPerRow,
+      pixelDensity: pixelDensity,
       drawerSize: drawerSize,
       drawerZoom: drawerZoom,
       drawerInsets: drawerInsets,
@@ -176,6 +182,7 @@ private struct RasterContext: @unchecked Sendable {
   let buffer: UnsafeMutablePointer<UInt8>
   let width: Int
   let bytesPerRow: Int
+  let pixelDensity: Double
   let drawerSize: Size
   let drawerZoom: Rect?
   let drawerInsets: EdgeInsets
@@ -193,16 +200,18 @@ private struct RasterContext: @unchecked Sendable {
   let imageH: Int
 
   func renderRow(_ py: Int) {
-    let pyD = Double(py) + 0.5
+    // Output rows are in backing-pixel space; convert each to the
+    // drawer's point-space before asking the projection.
+    let pyPoints = (Double(py) + 0.5) / pixelDensity
 
     for px in 0..<width {
-      let pxD = Double(px) + 0.5
+      let pxPoints = (Double(px) + 0.5) / pixelDensity
       // Always use `.topLeft` here. The output buffer is laid out in image-
       // row order (row 0 = top of canvas) so it composites correctly via
       // `CGContext.draw(image:in:)` regardless of platform; the caller
       // counter-flips the CTM on UIKit so row 0 lands at the visual top.
       let projected = projection.untranslate(
-        Point(x: pxD, y: pyD),
+        Point(x: pxPoints, y: pyPoints),
         from: drawerSize,
         zoomTo: drawerZoom,
         insets: drawerInsets,

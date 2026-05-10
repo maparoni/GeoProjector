@@ -70,18 +70,35 @@ public class GeoMapView: UIView {
       setNeedsDisplay()
     }
   }
+
+  /// Rebuild the drawer when the view's window changes so `pixelDensity`
+  /// picks up the new screen's display scale (the simulator's 1x display
+  /// vs. a Retina device, or the initial window attach).
+  public override func didMoveToWindow() {
+    super.didMoveToWindow()
+    _drawer = nil
+    invalidateProjectedContents()
+    setNeedsDisplay()
+  }
   
   private var _drawer: GeoDrawer!
+  /// Shared across drawer recreations so fetched OSM (or other) tiles
+  /// survive projection / size / zoom changes — tile bytes are
+  /// projection-independent, so re-hitting the network for them on every
+  /// projection switch would be wasteful and visibly delay redraw.
+  private let _tileCache = GeoDrawer.TileCache()
   private var drawer: GeoDrawer {
     if let _drawer {
       return _drawer
     } else {
-      let drawer = GeoDrawer(
+      var drawer = GeoDrawer(
         size: .init(frame.size),
         projection: projection,
         zoomTo: zoomTo,
         insets: insets
       )
+      drawer.tileCache = _tileCache
+      drawer.pixelDensity = Double(traitCollection.displayScale)
       _drawer = drawer
       return drawer
     }

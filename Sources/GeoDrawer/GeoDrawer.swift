@@ -142,10 +142,20 @@ public struct GeoDrawer {
   let baseMapCache = BaseMapCache()
 
   /// Class-backed cache of fetched-and-decoded tile bitmaps, keyed by
-  /// source identity + tile coordinate. Independent of the `BaseMap`
-  /// raster cache because tile fetching happens before rendering and
-  /// individual tiles are reusable across canvas size / zoom changes.
-  let tileCache = TileCache()
+  /// source identity + tile coordinate. **Mutable on purpose**: owners
+  /// like `GeoMapView` swap in a shared cache so fetched tiles survive
+  /// drawer recreations triggered by projection/size/zoom/insets changes.
+  /// Tile bytes are projection-independent, so reusing them is correct
+  /// and avoids re-hitting the network.
+  var tileCache: TileCache = TileCache()
+
+  /// Pixels-per-point for raster output. Use `2.0` on Retina displays so
+  /// base-map and tile rasters render at the backing-store resolution;
+  /// `CGContext.draw(image:in:)` then downscales smoothly to the
+  /// point-sized rect rather than upsampling a point-resolution buffer.
+  /// Vector content is unaffected (CG paths render natively at the
+  /// destination context's resolution).
+  public var pixelDensity: Double = 1.0
 #endif
 
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }
