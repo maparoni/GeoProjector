@@ -125,42 +125,75 @@ extension GeoDrawer {
 
   /// Fetches every tile in `tilesNeeded(for:)` that isn't already cached
   /// and stores the results in this drawer's tile cache. Returns when
-  /// every needed tile is either resolved or known-missing. Throws on
-  /// transport / decode errors; callers can choose to render partial
-  /// results by ignoring the error.
+  /// every needed tile is either resolved or known-missing.
   ///
-  /// Each time a tile lands, the drawer's *rendered* tiled-raster cache
-  /// is invalidated for the source — so the next render uses the new
-  /// tile — and `onTileLoaded` fires (on the task's executor) so the
-  /// caller can schedule a redraw. The caller is responsible for
-  /// debouncing the resulting redraws if tiles arrive in a tight burst.
+  /// Per-tile transport/decode errors are counted (see
+  /// `TileFetchProgress.failed`) rather than re-thrown so partial
+  /// coverage still renders — the caller decides whether to surface a
+  /// warning. Cancellation (parent task) is honoured.
+  ///
+  /// Each time a tile lands (successfully), the drawer's *rendered*
+  /// tiled-raster cache is invalidated for the source so the next draw
+  /// re-renders with the newly-arrived tile. `onProgress` fires after
+  /// every state change — including the initial snapshot when the call
+  /// starts — so callers can drive progress UIs and schedule redraws.
+  /// The caller is responsible for debouncing the resulting redraws
+  /// when tiles arrive in a tight burst.
   func prefetchTiles(
     for tiledBaseMap: TiledBaseMap,
-    onTileLoaded: (@Sendable () -> Void)? = nil
-  ) async throws {
+    onProgress: (@Sendable (TileFetchProgress) -> Void)? = nil
+  ) async {
     let needed = tilesNeeded(for: tiledBaseMap)
     let source = tiledBaseMap.source
     let sourceID = source.tileSourceID
     let rasterCache = baseMapCache
 
-    try await withThrowingTaskGroup(of: (TileKey, TileImage?).self) { group in
-      for tileKey in needed {
-        let cacheKey = TileCacheKey(sourceID: sourceID, tileKey: tileKey)
-        if tileCache.contains(cacheKey) { continue }
-        let added = group.addTaskUnlessCancelled {
-          let tile = try await source.tile(for: tileKey)
-          return (tileKey, tile)
-        }
-        if !added { throw CancellationError() }
+    // Tiles already in the cache (from a prior projection-switch) count
+    // as loaded — bumps the starting fraction so the UI doesn't flash
+    // back to 0% on every drag tick when most tiles are already there.
+    let totalNeeded = needed.count
+    var loaded = 0
+    var failed = 0
+    var tilesToFetch: [TileKey] = []
+    tilesToFetch.reserveCapacity(needed.count)
+    for tileKey in needed {
+      let cacheKey = TileCacheKey(sourceID: sourceID, tileKey: tileKey)
+      if tileCache.contains(cacheKey) {
+        loaded += 1
+      } else {
+        tilesToFetch.append(tileKey)
       }
-      for try await (tileKey, tile) in group {
-        if let tile {
-          tileCache.set(TileCacheKey(sourceID: sourceID, tileKey: tileKey), tile)
+    }
+    onProgress?(TileFetchProgress(total: totalNeeded, loaded: loaded, failed: failed))
+
+    await withTaskGroup(of: TileFetchOutcome.self) { group in
+      for tileKey in tilesToFetch {
+        let added = group.addTaskUnlessCancelled {
+          do {
+            let tile = try await source.tile(for: tileKey)
+            return TileFetchOutcome(key: tileKey, tile: tile, failed: false)
+          } catch {
+            return TileFetchOutcome(key: tileKey, tile: nil, failed: true)
+          }
+        }
+        if !added { break }
+      }
+      for await outcome in group {
+        if Task.isCancelled { break }
+        if outcome.failed {
+          failed += 1
+        } else if let tile = outcome.tile {
+          tileCache.set(TileCacheKey(sourceID: sourceID, tileKey: outcome.key), tile)
           // The cached rendered raster had partial tile coverage; drop it
           // so the next draw re-renders with the newly-arrived tile.
           rasterCache.invalidateTiled(matching: sourceID)
-          onTileLoaded?()
+          loaded += 1
+        } else {
+          // Source explicitly returned nil (no tile at that key, e.g.
+          // some services skip ocean) — count as resolved, not failed.
+          loaded += 1
         }
+        onProgress?(TileFetchProgress(total: totalNeeded, loaded: loaded, failed: failed))
       }
     }
   }
@@ -275,6 +308,12 @@ extension GeoDrawer {
       shouldInterpolate: false, intent: .defaultIntent
     )
   }
+}
+
+private struct TileFetchOutcome: Sendable {
+  let key: TileKey
+  let tile: TileImage?
+  let failed: Bool
 }
 
 private struct TiledRasterContext: @unchecked Sendable {

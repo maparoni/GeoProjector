@@ -104,3 +104,41 @@ extension TileSource {
     return key.x >= 0 && key.x < n && key.y >= 0 && key.y < n
   }
 }
+
+/// Snapshot of how a tile prefetch is progressing.
+///
+/// `total` is the count of distinct tiles the renderer needs at the
+/// current canvas configuration. `loaded` includes both freshly-fetched
+/// tiles and tiles already in the drawer's `TileCache` from a prior
+/// call. `failed` covers network and decode errors per tile — these
+/// are counted here rather than re-thrown so partial coverage still
+/// renders.
+///
+/// Consumers (e.g. a SwiftUI overlay) typically watch `fraction` for
+/// the in-progress UI and `failed` for an at-a-glance warning state.
+public struct TileFetchProgress: Hashable, Sendable {
+  public let total: Int
+  public let loaded: Int
+  public let failed: Int
+
+  public init(total: Int, loaded: Int, failed: Int) {
+    self.total = total
+    self.loaded = loaded
+    self.failed = failed
+  }
+
+  /// Tiles still being awaited. `max(0, …)` because `loaded + failed`
+  /// is only ever >= `total` at completion.
+  public var pending: Int { max(0, total - loaded - failed) }
+
+  /// Resolved fraction in `0...1`. Failures count as resolved so the
+  /// bar finishes (rather than getting stuck near 100% on a partial
+  /// outage).
+  public var fraction: Double {
+    guard total > 0 else { return 1 }
+    return Double(loaded + failed) / Double(total)
+  }
+
+  /// Every needed tile has either landed or failed.
+  public var isComplete: Bool { loaded + failed >= total }
+}

@@ -161,10 +161,21 @@ extension ContentView {
     @Published var zoomTo: (GeoJSON.BoundingBox, Layer.ID)?
 
     @AppStorage("options.baseMap")
-    var baseMapMode: BaseMapMode = .none
+    var baseMapMode: BaseMapMode = .none {
+      didSet {
+        // Drop any stale tile progress when the source changes — the
+        // overlay shouldn't show a count from the previous source.
+        if baseMapMode != oldValue { tileProgress = nil }
+      }
+    }
 
     @AppStorage("options.renderQuality")
     var renderQuality: RenderQuality = .matchDisplay
+
+    /// Latest tile-fetch progress snapshot for the active tiled base
+    /// map. Nil when there isn't (or hasn't yet been) a fetch in
+    /// flight for the current selection.
+    @Published var tileProgress: TileFetchProgress?
 
     /// Lazily-decoded NASA Blue Marble Next Generation base map. The asset is
     /// shipped in the Cassini asset catalogue (5400×2700 equirectangular JPEG

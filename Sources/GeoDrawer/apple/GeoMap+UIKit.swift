@@ -74,6 +74,13 @@ public class GeoMapView: UIView {
     }
   }
 
+  /// Called on the main thread whenever the in-flight tile prefetch
+  /// state changes — fires once with `loaded == 0` at the start of
+  /// each projection's prefetch, then per tile completion (success or
+  /// failure), and a final snapshot when complete. Drives Cassini's
+  /// progress overlay + warning icon.
+  public var onTileProgress: ((TileFetchProgress) -> Void)? = nil
+
   /// Resolves `quality` to the concrete `pixelDensity` value for the
   /// next drawer build. `.matchDisplay` reads the current display scale,
   /// so moving the view between displays picks up the new value via
@@ -314,13 +321,15 @@ public class GeoMapView: UIView {
         // missing. Each tile arrival invalidates the rendered-raster cache
         // and triggers a debounced background re-render, so the user sees
         // tiles fill in progressively rather than waiting on the full set.
+        // Progress is surfaced to the consumer via `onTileProgress`.
         await withTaskGroup(of: Void.self) { group in
           for content in projected {
             if Task.isCancelled { break }
             guard case let .tiledBaseMap(tiled) = content else { continue }
             group.addTask {
-              try? await self.drawer.prefetchTiles(for: tiled) {
+              await self.drawer.prefetchTiles(for: tiled) { progress in
                 Task { @MainActor in
+                  self.onTileProgress?(progress)
                   self.scheduleTiledRerender(for: tiled)
                 }
               }
@@ -356,7 +365,7 @@ public struct GeoMap: UIViewRepresentable {
     case custom(Double)
   }
 
-  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: UIColor? = nil, mapOutline: UIColor? = nil, mapBackdrop: UIColor? = nil, quality: Quality = .matchDisplay) {
+  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: UIColor? = nil, mapOutline: UIColor? = nil, mapBackdrop: UIColor? = nil, quality: Quality = .matchDisplay, onTileProgress: ((TileFetchProgress) -> Void)? = nil) {
     self.contents = contents
     self.projection = projection
     self.zoomTo = zoomTo
@@ -365,6 +374,7 @@ public struct GeoMap: UIViewRepresentable {
     self.mapOutline = mapOutline
     self.mapBackdrop = mapBackdrop
     self.quality = quality
+    self.onTileProgress = onTileProgress
   }
 
   public var contents: [GeoDrawer.Content] = []
@@ -383,6 +393,8 @@ public struct GeoMap: UIViewRepresentable {
 
   public var quality: Quality = .matchDisplay
 
+  public var onTileProgress: ((TileFetchProgress) -> Void)? = nil
+
   public typealias UIViewType = GeoMapView
 
   public func makeUIView(context: Context) -> GeoMapView {
@@ -392,6 +404,7 @@ public struct GeoMap: UIViewRepresentable {
     view.zoomTo = zoomTo
     view.insets = insets
     view.quality = quality
+    view.onTileProgress = onTileProgress
     if let mapBackground {
       view.mapBackground = mapBackground
     }
@@ -410,6 +423,7 @@ public struct GeoMap: UIViewRepresentable {
     view.zoomTo = zoomTo
     view.insets = insets
     view.quality = quality
+    view.onTileProgress = onTileProgress
     if let mapBackground {
       view.mapBackground = mapBackground
     }
