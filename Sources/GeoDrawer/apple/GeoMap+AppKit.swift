@@ -24,7 +24,7 @@ public class GeoMapView: NSView {
 
   public var projection: Projection = Projections.Equirectangular() {
     didSet {
-      _drawer = nil
+      cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
@@ -32,7 +32,7 @@ public class GeoMapView: NSView {
 
   public var zoomTo: GeoJSON.BoundingBox? = nil {
     didSet {
-      _drawer = nil
+      cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
@@ -40,7 +40,7 @@ public class GeoMapView: NSView {
 
   public var insets: GeoProjector.EdgeInsets = .zero {
     didSet {
-      _drawer = nil
+      cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
@@ -71,7 +71,7 @@ public class GeoMapView: NSView {
   public var quality: GeoMap.Quality = .matchDisplay {
     didSet {
       if quality == oldValue { return }
-      _drawer = nil
+      cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
@@ -92,7 +92,7 @@ public class GeoMapView: NSView {
 
   public override var frame: NSRect {
     didSet {
-      _drawer = nil
+      cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
@@ -109,11 +109,31 @@ public class GeoMapView: NSView {
   }
 
   private var _drawer: GeoDrawer!
+  /// The drawer we were rendering with at the last `.finished` state,
+  /// kept alive across the next projection / size / zoom / quality
+  /// change so `draw(_:)` can paint its prior frame while the new
+  /// render is in flight. Without this, returning early during `.busy`
+  /// cleared the backing store and flashed between every slider tick.
+  /// Cleared on the next `.finished` transition.
+  private var _previousDrawer: GeoDrawer?
   /// Shared across drawer recreations so fetched OSM (or other) tiles
   /// survive projection / size / zoom changes — tile bytes are
   /// projection-independent, so re-hitting the network for them on every
   /// projection switch would be wasteful and visibly delay redraw.
   private let _tileCache = GeoDrawer.TileCache()
+
+  /// Save the current drawer for `draw(_:)` to use during the upcoming
+  /// busy state, then clear `_drawer` so the next access rebuilds it
+  /// against the new parameters. The save is sticky — burst slider
+  /// drags don't overwrite the original prior drawer until a render
+  /// actually finishes.
+  private func cycleDrawer() {
+    if _previousDrawer == nil, let existing = _drawer {
+      _previousDrawer = existing
+    }
+    _drawer = nil
+  }
+
   private var drawer: GeoDrawer {
     if let _drawer {
       return _drawer
@@ -151,17 +171,27 @@ public class GeoMapView: NSView {
   }
 
   public override func draw(_ rect: NSRect) {
-    // Don't draw if we're busy — rendering with the previously-projected
-    // content but the *new* drawer (post-projection-change) produced a
-    // buggy hybrid where vectors lived in the old projection space while
-    // base-map rasters rendered against the new one and got stale-cached
-    // with partial tile coverage. Hold the prior frame on screen instead;
-    // the new render lands once projection completes.
+    // Pick the drawer + projected content to paint. When busy with a
+    // prior finished frame, render that prior pair (the *old* drawer
+    // with *old* projection — `_previousDrawer` — drawing its own old
+    // projected content), which reproduces the last good frame
+    // exactly. This avoids the hybrid "new drawer rendering old
+    // projected content" that would partially-cache a tiled raster and
+    // also dodges the white flashes caused by returning early.
+    let activeDrawer: GeoDrawer
     let projected: [GeoDrawer.ProjectedContent]
     switch projectProgress {
-    case .busy, .idle:
+    case let .busy(_, .some(previously)):
+      if let stale = _previousDrawer {
+        activeDrawer = stale
+        projected = previously
+      } else {
+        return
+      }
+    case .busy(_, .none), .idle:
       return
-    case .finished(let finished):
+    case let .finished(finished):
+      activeDrawer = drawer
       projected = finished
     }
 
@@ -171,13 +201,21 @@ public class GeoMapView: NSView {
     let context = NSGraphicsContext.current!.cgContext
 
     // Use Core Graphics functions to draw the content of your view
-    drawer.draw(
+    activeDrawer.draw(
       projected,
       mapBackground: mapBackground.cgColor,
       mapOutline: mapOutline.cgColor,
       mapBackdrop: mapBackdrop.cgColor,
       in: context
     )
+
+    if isStaleRender {
+      // The new render has been in flight long enough that the prior
+      // frame is misleadingly fresh — wash it in translucent grey to
+      // signal "loading".
+      context.setFillColor(CGColor(gray: 0.5, alpha: 0.25))
+      context.fill(rect)
+    }
   }
 
   // MARK: - Performance
@@ -190,6 +228,33 @@ public class GeoMapView: NSView {
 
   private var projectProgress = ProjectionProgress.idle
 
+  /// When `true`, `draw(_:)` tints the prior frame translucent grey to
+  /// signal that the new render has been in flight for a while.
+  private var isStaleRender = false
+  private var staleRenderTimer: Task<Void, Never>?
+
+  private func startStaleRenderTimer() {
+    staleRenderTimer?.cancel()
+    staleRenderTimer = Task { @MainActor [weak self] in
+      try? await Task.sleep(nanoseconds: 500_000_000)
+      guard let self, !Task.isCancelled else { return }
+      if case .busy = self.projectProgress, !self.isStaleRender {
+        self.isStaleRender = true
+        self.setNeedsDisplay(self.bounds)
+      }
+    }
+  }
+
+  private func cancelStaleRenderTimer() {
+    staleRenderTimer?.cancel()
+    staleRenderTimer = nil
+    if isStaleRender {
+      isStaleRender = false
+      // `setNeedsDisplay` is implicit at the .finished transition; no
+      // need to schedule an extra one here.
+    }
+  }
+
   private func invalidateProjectedContents() {
     let previous: [GeoDrawer.ProjectedContent]?
     switch projectProgress {
@@ -201,6 +266,8 @@ public class GeoMapView: NSView {
     case .idle:
       previous = nil
     }
+
+    startStaleRenderTimer()
 
     projectProgress = .busy(Task(priority: .high) { [weak self] in
       guard let self else { return }
@@ -226,6 +293,8 @@ public class GeoMapView: NSView {
         }
         if Task.isCancelled { return }
         await MainActor.run {
+          self.cancelStaleRenderTimer()
+          self._previousDrawer = nil
           self.projectProgress = .finished(projected)
           self.setNeedsDisplay(self.bounds)
         }
