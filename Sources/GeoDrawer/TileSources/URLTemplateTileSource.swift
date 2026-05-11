@@ -30,7 +30,7 @@ import FoundationNetworking
 /// Most public tile servers require a meaningful `User-Agent` header
 /// identifying your application — OSM in particular returns HTTP 429 for
 /// requests without one. Pass `userAgent` to set it.
-public struct URLTemplateTileSource: TileSource {
+public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
 
   public let template: String
   public let projection: any Projection
@@ -108,7 +108,7 @@ public struct URLTemplateTileSource: TileSource {
       request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
     }
 
-    let (data, response) = try await urlSession.data(for: request)
+    let (data, response) = try await fetchData(for: request)
 
     if let http = response as? HTTPURLResponse {
       if http.statusCode == 404 {
@@ -121,6 +121,32 @@ public struct URLTemplateTileSource: TileSource {
 
     return try decoder(data)
   }
+
+  /// Modern path uses `URLSession.data(for:)`. Linux toolchains older
+  /// than Swift 6.0 didn't ship that async overload on
+  /// `swift-corelibs-foundation`, so for those we fall back to a
+  /// continuation wrapped around `dataTask(with:completionHandler:)` —
+  /// same effect, just gluing the closure-based API onto async/await.
+#if !canImport(FoundationNetworking) || swift(>=6.0)
+  private func fetchData(for request: URLRequest) async throws -> (Data, URLResponse) {
+    try await urlSession.data(for: request)
+  }
+#else
+  private func fetchData(for request: URLRequest) async throws -> (Data, URLResponse) {
+    try await withCheckedThrowingContinuation { continuation in
+      let task = urlSession.dataTask(with: request) { data, response, error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else if let data, let response {
+          continuation.resume(returning: (data, response))
+        } else {
+          continuation.resume(throwing: URLError(.zeroByteResource))
+        }
+      }
+      task.resume()
+    }
+  }
+#endif
 
   private func url(for key: TileKey) -> URL? {
     let expanded = template
