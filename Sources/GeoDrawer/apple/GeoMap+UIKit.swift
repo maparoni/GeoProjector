@@ -191,22 +191,31 @@ public class GeoMapView: UIView {
     }
 
     // Pick the drawer + projected content to paint. When busy with a
-    // prior finished frame, render that prior pair (the *old* drawer
-    // with *old* projection — `_previousDrawer` — drawing its own old
-    // projected content), which reproduces the last good frame
-    // exactly. This avoids the hybrid "new drawer rendering old
-    // projected content" that would partially-cache a tiled raster and
-    // also dodges the white flashes caused by returning early.
+    // prior finished frame, we want a drawer whose projection matches
+    // that frame:
+    //   - If the drawer was cycled (projection / size / zoom / quality
+    //     change), `_previousDrawer` holds the old drawer with the old
+    //     projection — render the prior pair to reproduce the last
+    //     good frame exactly. This dodges the hybrid "new drawer
+    //     rendering old projected content" case that partially-cached
+    //     a tiled raster, and also avoids white flashes from
+    //     returning early.
+    //   - If only `contents` changed, `_drawer` is still the same
+    //     drawer with the same projection, so rendering the
+    //     previously-projected content against it is correct — same
+    //     layers as before the toggle, just briefly.
     let activeDrawer: GeoDrawer
     let projected: [GeoDrawer.ProjectedContent]
     switch projectProgress {
     case let .busy(_, .some(previously)):
       if let stale = _previousDrawer {
         activeDrawer = stale
-        projected = previously
+      } else if let current = _drawer {
+        activeDrawer = current
       } else {
         return
       }
+      projected = previously
     case .busy(_, .none), .idle:
       return
     case let .finished(finished):
