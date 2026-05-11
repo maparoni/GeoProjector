@@ -25,10 +25,21 @@ public class GeoMapView: UIView {
   
   public var projection: Projection = Projections.Equirectangular() {
     didSet {
+      if Self.projectionsEquivalent(projection, oldValue) { return }
       cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay()
     }
+  }
+
+  /// `Projection` is a protocol type and isn't `Equatable`, but for the
+  /// view's redraw-dedupe purposes "same concrete type + same reference
+  /// point" is the property that matters — SwiftUI's body re-evaluation
+  /// can fire many times per second on @Published changes (e.g. tile
+  /// progress callbacks) and triggering a fresh drawer rebuild every
+  /// time would defeat all the caching.
+  private static func projectionsEquivalent(_ a: Projection, _ b: Projection) -> Bool {
+    type(of: a) == type(of: b) && a.reference == b.reference
   }
   
   public var zoomTo: GeoJSON.BoundingBox? = nil {

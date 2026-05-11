@@ -17,6 +17,7 @@ import GeoJSONKit
 public class GeoMapView: NSView {
   public var contents: [GeoDrawer.Content] = [] {
     didSet {
+      if contents == oldValue { return }
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
@@ -24,6 +25,7 @@ public class GeoMapView: NSView {
 
   public var projection: Projection = Projections.Equirectangular() {
     didSet {
+      if Self.projectionsEquivalent(projection, oldValue) { return }
       cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
@@ -32,6 +34,7 @@ public class GeoMapView: NSView {
 
   public var zoomTo: GeoJSON.BoundingBox? = nil {
     didSet {
+      if zoomTo == oldValue { return }
       cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
@@ -40,6 +43,7 @@ public class GeoMapView: NSView {
 
   public var insets: GeoProjector.EdgeInsets = .zero {
     didSet {
+      if insets == oldValue { return }
       cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
@@ -99,10 +103,21 @@ public class GeoMapView: NSView {
 
   public override var frame: NSRect {
     didSet {
+      if frame == oldValue { return }
       cycleDrawer()
       invalidateProjectedContents()
       setNeedsDisplay(bounds)
     }
+  }
+
+  /// `Projection` is a protocol type and isn't `Equatable`, but for the
+  /// view's redraw-dedupe purposes "same concrete type + same reference
+  /// point" is the property that matters — SwiftUI's body re-evaluation
+  /// can fire many times per second on @Published changes (e.g. tile
+  /// progress callbacks) and triggering a fresh drawer rebuild every
+  /// time would defeat all the caching.
+  private static func projectionsEquivalent(_ a: Projection, _ b: Projection) -> Bool {
+    type(of: a) == type(of: b) && a.reference == b.reference
   }
 
   /// Rebuild the drawer when the view's window changes so `pixelDensity`
