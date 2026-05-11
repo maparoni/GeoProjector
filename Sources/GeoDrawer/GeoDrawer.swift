@@ -133,20 +133,15 @@ public struct GeoDrawer {
 
   public let insets: EdgeInsets
 
-#if canImport(CoreGraphics)
-  /// Class-backed cache of rendered base-map rasters. Sharing a reference
-  /// across drawer copies is intentional: as long as the drawer's
-  /// `(projection, size, zoomTo, insets)` tuple is the same, the raster
-  /// for a given `BaseMap` is the same; when any of those change, the
-  /// owner (e.g. `GeoMapView`) builds a new `GeoDrawer`, dropping this cache.
-  let baseMapCache = BaseMapCache()
-
   /// Class-backed cache of fetched-and-decoded tile bitmaps, keyed by
   /// source identity + tile coordinate. **Mutable on purpose**: owners
   /// like `GeoMapView` swap in a shared cache so fetched tiles survive
   /// drawer recreations triggered by projection/size/zoom/insets changes.
   /// Tile bytes are projection-independent, so reusing them is correct
   /// and avoids re-hitting the network.
+  ///
+  /// Cross-platform — Linux server-side renderers can pre-fetch tiles
+  /// into the same shared cache.
   var tileCache: TileCache = TileCache()
 
   /// Pixels-per-point for raster output. Use `2.0` on Retina displays so
@@ -155,7 +150,19 @@ public struct GeoDrawer {
   /// point-sized rect rather than upsampling a point-resolution buffer.
   /// Vector content is unaffected (CG paths render natively at the
   /// destination context's resolution).
+  ///
+  /// Used by both the Apple raster renderer and the pure-Swift
+  /// `tilesNeeded` / `prefetchTiles` machinery, so it lives outside
+  /// the CoreGraphics gate.
   public var pixelDensity: Double = 1.0
+
+#if canImport(CoreGraphics)
+  /// Class-backed cache of rendered base-map rasters. Sharing a reference
+  /// across drawer copies is intentional: as long as the drawer's
+  /// `(projection, size, zoomTo, insets)` tuple is the same, the raster
+  /// for a given `BaseMap` is the same; when any of those change, the
+  /// owner (e.g. `GeoMapView`) builds a new `GeoDrawer`, dropping this cache.
+  let baseMapCache = BaseMapCache()
 #endif
 
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }

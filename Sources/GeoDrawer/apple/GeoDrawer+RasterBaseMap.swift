@@ -22,7 +22,7 @@ extension GeoDrawer {
   /// cache slot.
   struct BaseMapCacheKey: Hashable {
     let imageID: ObjectIdentifier
-    let sampling: BaseMap.Sampling
+    let sampling: GeoDrawer.Sampling
     let alphaMilli: Int
     let pixelDensityMilli: Int
 
@@ -201,7 +201,7 @@ private struct RasterContext: @unchecked Sendable {
   let sourceProjection: Projection
   let sourceImageSize: Size
   let wrapsLongitudinally: Bool
-  let sampling: GeoDrawer.BaseMap.Sampling
+  let sampling: GeoDrawer.Sampling
   let alpha: Double
   let imageRef: GeoDrawer.BaseMapImage
   let imagePixels: UnsafeBufferPointer<UInt8>

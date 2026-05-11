@@ -42,13 +42,13 @@ extension GeoDrawer {
 
     public let source: any TileSource
     public let zoom: Zoom
-    public let sampling: BaseMap.Sampling
+    public let sampling: GeoDrawer.Sampling
     public let alpha: Double
 
     public init(
       source: any TileSource,
       zoom: Zoom = .auto,
-      sampling: BaseMap.Sampling = .bilinear,
+      sampling: GeoDrawer.Sampling = .bilinear,
       alpha: Double = 1.0
     ) {
       if case let .fixed(z) = zoom {
@@ -65,7 +65,7 @@ extension GeoDrawer {
     public init(
       source: any TileSource,
       zoom: Int,
-      sampling: BaseMap.Sampling = .bilinear,
+      sampling: GeoDrawer.Sampling = .bilinear,
       alpha: Double = 1.0
     ) {
       self.init(source: source, zoom: .fixed(zoom), sampling: sampling, alpha: alpha)
