@@ -8,6 +8,9 @@
 // Copyright (C) 2026 Corporoni Pty Ltd. See LICENSE.
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 @preconcurrency import GeoProjector
 

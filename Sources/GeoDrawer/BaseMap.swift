@@ -49,8 +49,13 @@ extension GeoDrawer {
       let count = width * height * 4
       guard pixels.count == count else { return nil }
       let storage = UnsafeMutablePointer<UInt8>.allocate(capacity: count)
-      _ = pixels.withUnsafeBufferPointer { src in
-        memcpy(storage, src.baseAddress, count)
+      pixels.withUnsafeBufferPointer { src in
+        // `src.baseAddress` is non-nil because `count > 0` is enforced
+        // above (and Swift's array storage guarantees a contiguous
+        // base address for non-empty arrays).
+        if let base = src.baseAddress {
+          memcpy(storage, base, count)
+        }
       }
       self.init(width: width, height: height, storage: storage)
     }
