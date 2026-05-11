@@ -269,7 +269,7 @@ public class GeoMapView: NSView {
 
     startStaleRenderTimer()
 
-    projectProgress = .busy(Task(priority: .high) { [weak self] in
+    projectProgress = .busy(Task.detached(priority: .high) { [weak self] in
       guard let self else { return }
       do {
         let projected = try await drawer.projectInParallel(contents, coordinateSystem: .bottomLeft)
