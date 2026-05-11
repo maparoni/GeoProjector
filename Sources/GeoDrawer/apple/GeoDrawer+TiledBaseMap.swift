@@ -259,6 +259,23 @@ extension GeoDrawer {
     let tileSize = source.tileSize
     let totalSize = Size(width: Double(tileSize * n), height: Double(tileSize * n))
 
+    // Snapshot the tile grid into a flat array up-front so the per-pixel
+    // sampler can look up tiles by integer index — no NSLock acquire and
+    // no `AnyHashable` hash per pixel. The drawer's `tileCache` is a
+    // shared resource (one lock per render's tile-snapshot, not per
+    // sample), and the per-pixel cost drops to a bounds-checked array
+    // load.
+    var tileGrid: [TileImage?] = Array(repeating: nil, count: n * n)
+    for ty in 0..<n {
+      for tx in 0..<n {
+        let cacheKey = GeoDrawer.TileCacheKey(
+          sourceID: sourceID,
+          tileKey: TileKey(z: z, x: tx, y: ty)
+        )
+        tileGrid[ty * n + tx] = tileCache.get(cacheKey)
+      }
+    }
+
     let context = TiledRasterContext(
       buffer: buffer,
       width: width,
@@ -276,9 +293,7 @@ extension GeoDrawer {
       gridDimension: n,
       sampling: tiledBaseMap.sampling,
       alpha: tiledBaseMap.alpha,
-      tileCache: tileCache,
-      sourceID: sourceID,
-      zoom: z,
+      tileGrid: tileGrid,
       wrapsLongitudinally: source.projection.wrapsLongitudinally
     )
 
@@ -333,9 +348,10 @@ private struct TiledRasterContext: @unchecked Sendable {
   let gridDimension: Int
   let sampling: GeoDrawer.BaseMap.Sampling
   let alpha: Double
-  let tileCache: GeoDrawer.TileCache
-  let sourceID: AnyHashable
-  let zoom: Int
+  /// Flat row-major grid of the tiles this render needs — pre-resolved
+  /// from the shared `TileCache` once, before the per-pixel sweep
+  /// starts. Index is `ty * gridDimension + tx`.
+  let tileGrid: [TileImage?]
   let wrapsLongitudinally: Bool
 
   func renderRow(_ py: Int) {
@@ -378,11 +394,7 @@ private struct TiledRasterContext: @unchecked Sendable {
       let ty = Int(syFull.rounded(.down)) / tileSize
       if tx < 0 || tx >= gridDimension || ty < 0 || ty >= gridDimension { continue }
 
-      let key = GeoDrawer.TileCacheKey(
-        sourceID: sourceID,
-        tileKey: TileKey(z: zoom, x: tx, y: ty)
-      )
-      guard let tile = tileCache.get(key) else { continue }
+      guard let tile = tileGrid[ty * gridDimension + tx] else { continue }
 
       let tileX = sxFull - Double(tx * tileSize)
       let tileY = syFull - Double(ty * tileSize)
