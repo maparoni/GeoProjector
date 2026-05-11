@@ -23,6 +23,34 @@ import GeoProjectorDanseiji
 
 extension ContentView {
 
+  /// Render-quality choices exposed in Cassini's UI. Maps to the
+  /// underlying `GeoMap.Quality` enum at use-site. The `.custom(_)`
+  /// library case isn't exposed here because there's no good UI for
+  /// a free-form Double in the demo.
+  enum RenderQuality: String, CaseIterable, Identifiable {
+    case draft
+    case standard
+    case matchDisplay
+
+    var id: String { rawValue }
+
+    var label: String {
+      switch self {
+      case .draft: return "Draft"
+      case .standard: return "Standard"
+      case .matchDisplay: return "Display"
+      }
+    }
+
+    var asQuality: GeoMap.Quality {
+      switch self {
+      case .draft: return .draft
+      case .standard: return .standard
+      case .matchDisplay: return .matchDisplay
+      }
+    }
+  }
+
   enum BaseMapMode: String, CaseIterable, Identifiable {
     case none
     case blueMarble
@@ -134,6 +162,9 @@ extension ContentView {
 
     @AppStorage("options.baseMap")
     var baseMapMode: BaseMapMode = .none
+
+    @AppStorage("options.renderQuality")
+    var renderQuality: RenderQuality = .matchDisplay
 
     /// Lazily-decoded NASA Blue Marble Next Generation base map. The asset is
     /// shipped in the Cassini asset catalogue (5400×2700 equirectangular JPEG

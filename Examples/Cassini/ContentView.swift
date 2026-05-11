@@ -51,7 +51,8 @@ struct ContentView_macOS: View {
             zoomTo: model.zoomTo?.0,
             insets: model.insets,
             mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
-            mapOutline: colorScheme == .dark ? .white : .black
+            mapOutline: colorScheme == .dark ? .white : .black,
+            quality: model.renderQuality.asQuality
           )
           .onContinuousHover { phase in
             switch phase {
@@ -165,7 +166,8 @@ struct ContentView_iOS: View {
         zoomTo: model.zoomTo?.0,
         insets: model.insets,
         mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
-        mapOutline: colorScheme == .dark ? .white : .black
+        mapOutline: colorScheme == .dark ? .white : .black,
+        quality: model.renderQuality.asQuality
       )
       .overlay(alignment: .bottomTrailing) {
         if let attribution = model.baseMapMode.attribution {
@@ -225,6 +227,16 @@ struct OptionsView: View {
       GroupBox("Base map") {
         Picker("Base map", selection: $model.baseMapMode) {
           ForEach(ContentView.BaseMapMode.allCases) {
+            Text($0.label).tag($0)
+          }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+      }
+
+      GroupBox("Render quality") {
+        Picker("Render quality", selection: $model.renderQuality) {
+          ForEach(ContentView.RenderQuality.allCases) {
             Text($0.label).tag($0)
           }
         }

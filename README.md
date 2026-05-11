@@ -189,6 +189,29 @@ once); `URLTemplateTileSource` covers slippy-map services. Both are
 `Sendable` and safe to share across the renderer's parallel sampling
 tasks.
 
+### Render quality
+
+`GeoMap` exposes a `quality:` knob so the consuming app can trade off
+rendering cost against crispness:
+
+- `.draft` (½× point resolution) — fastest, visibly soft. Right for
+  interactive previews while the user is dragging sliders or cycling
+  projections.
+- `.standard` (1× point resolution) — fast, sharp on non-Retina, soft on
+  Retina.
+- `.matchDisplay` (the default) — renders at the destination display's
+  backing scale; matches what native UIKit/AppKit drawing produces.
+- `.custom(Double)` — pick a pixel-density factor directly (e.g. `2.0`
+  for an oversampled export at a non-Retina destination).
+
+```swift
+GeoMap(
+  contents: [.tiledBaseMap(osm)],
+  projection: Projections.Mercator(),
+  quality: isInteracting ? .draft : .matchDisplay
+)
+```
+
 ## Credits
 
 The code in this repo is written by myself, [Adrian Schönig](https://github.com/nighthawk), along recently with help from [Claude](https://claude.ai)

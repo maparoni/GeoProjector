@@ -64,6 +64,32 @@ public class GeoMapView: NSView {
     }
   }
 
+  /// Render-resolution policy. `.matchDisplay` (the default) renders at
+  /// the destination display's backing scale; switch to `.draft` for
+  /// fast interactive previews that accept some blur, or `.custom(_)`
+  /// to pick an explicit pixel-density factor (e.g. for export).
+  public var quality: GeoMap.Quality = .matchDisplay {
+    didSet {
+      if quality == oldValue { return }
+      _drawer = nil
+      invalidateProjectedContents()
+      setNeedsDisplay(bounds)
+    }
+  }
+
+  /// Resolves `quality` to the concrete `pixelDensity` value for the
+  /// next drawer build. `.matchDisplay` reads the current window's
+  /// backing scale, so moving the window between displays picks up the
+  /// new value via `viewDidMoveToWindow`'s drawer rebuild.
+  private var resolvedPixelDensity: Double {
+    switch quality {
+    case .draft: return 0.5
+    case .standard: return 1.0
+    case .matchDisplay: return Double(window?.backingScaleFactor ?? 1.0)
+    case .custom(let d): return max(0.1, d)
+    }
+  }
+
   public override var frame: NSRect {
     didSet {
       _drawer = nil
@@ -99,7 +125,7 @@ public class GeoMapView: NSView {
         insets: insets
       )
       drawer.tileCache = _tileCache
-      drawer.pixelDensity = Double(window?.backingScaleFactor ?? 1.0)
+      drawer.pixelDensity = resolvedPixelDensity
       _drawer = drawer
       return drawer
     }
@@ -231,7 +257,26 @@ public class GeoMapView: NSView {
 @available(macOS 10.15, *)
 public struct GeoMap: NSViewRepresentable {
 
-  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: NSColor? = nil, mapOutline: NSColor? = nil, mapBackdrop: NSColor? = nil) {
+  /// Render-resolution policy. The consuming app picks the trade-off
+  /// between rendering cost and crispness based on context (fast
+  /// `.draft` while the user is interactively exploring, sharper
+  /// `.matchDisplay` once they've settled on a view they like).
+  public enum Quality: Hashable, Sendable {
+    /// Render at half the canvas's logical-point size. Cheap and soft —
+    /// good for live previews while dragging sliders or cycling projections.
+    case draft
+    /// Render at the canvas's logical-point size (no oversampling). Sharp
+    /// on non-Retina displays; visibly soft on Retina.
+    case standard
+    /// Render at the destination display's backing scale factor — matches
+    /// what native UIKit/AppKit drawing produces. Default.
+    case matchDisplay
+    /// Render at the supplied pixel-density factor (e.g. for export at a
+    /// specific resolution, or fine-tuning quality vs. performance).
+    case custom(Double)
+  }
+
+  public init(contents: [GeoDrawer.Content] = [], projection: Projection = Projections.Equirectangular(), zoomTo: GeoJSON.BoundingBox? = nil, insets: GeoProjector.EdgeInsets = .zero, mapBackground: NSColor? = nil, mapOutline: NSColor? = nil, mapBackdrop: NSColor? = nil, quality: Quality = .matchDisplay) {
     self.contents = contents
     self.projection = projection
     self.zoomTo = zoomTo
@@ -239,6 +284,7 @@ public struct GeoMap: NSViewRepresentable {
     self.mapBackground = mapBackground
     self.mapOutline = mapOutline
     self.mapBackdrop = mapBackdrop
+    self.quality = quality
   }
 
   public var contents: [GeoDrawer.Content] = []
@@ -255,6 +301,8 @@ public struct GeoMap: NSViewRepresentable {
 
   public var mapBackdrop: NSColor? = nil
 
+  public var quality: Quality = .matchDisplay
+
   public typealias NSViewType = GeoMapView
 
   public func makeNSView(context: Context) -> GeoMapView {
@@ -263,6 +311,7 @@ public struct GeoMap: NSViewRepresentable {
     view.projection = projection
     view.zoomTo = zoomTo
     view.insets = insets
+    view.quality = quality
     if let mapBackground {
       view.mapBackground = mapBackground
     }
@@ -280,6 +329,7 @@ public struct GeoMap: NSViewRepresentable {
     view.projection = projection
     view.zoomTo = zoomTo
     view.insets = insets
+    view.quality = quality
     if let mapBackground {
       view.mapBackground = mapBackground
     }
