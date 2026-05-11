@@ -133,6 +133,38 @@ public struct GeoDrawer {
 
   public let insets: EdgeInsets
 
+  /// Class-backed cache of fetched-and-decoded tile bitmaps, keyed by
+  /// source identity + tile coordinate. **Mutable on purpose**: owners
+  /// like `GeoMapView` swap in a shared cache so fetched tiles survive
+  /// drawer recreations triggered by projection/size/zoom/insets changes.
+  /// Tile bytes are projection-independent, so reusing them is correct
+  /// and avoids re-hitting the network.
+  ///
+  /// Cross-platform — Linux server-side renderers can pre-fetch tiles
+  /// into the same shared cache.
+  var tileCache: TileCache = TileCache()
+
+  /// Pixels-per-point for raster output. Use `2.0` on Retina displays so
+  /// base-map and tile rasters render at the backing-store resolution;
+  /// `CGContext.draw(image:in:)` then downscales smoothly to the
+  /// point-sized rect rather than upsampling a point-resolution buffer.
+  /// Vector content is unaffected (CG paths render natively at the
+  /// destination context's resolution).
+  ///
+  /// Used by both the Apple raster renderer and the pure-Swift
+  /// `tilesNeeded` / `prefetchTiles` machinery, so it lives outside
+  /// the CoreGraphics gate.
+  public var pixelDensity: Double = 1.0
+
+#if canImport(CoreGraphics)
+  /// Class-backed cache of rendered base-map rasters. Sharing a reference
+  /// across drawer copies is intentional: as long as the drawer's
+  /// `(projection, size, zoomTo, insets)` tuple is the same, the raster
+  /// for a given `BaseMap` is the same; when any of those change, the
+  /// owner (e.g. `GeoMapView`) builds a new `GeoDrawer`, dropping this cache.
+  let baseMapCache = BaseMapCache()
+#endif
+
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { projection?.invertCheck }
 
   let converter: (GeoJSON.Position, CoordinateSystem) -> Point?
@@ -175,6 +207,15 @@ extension GeoDrawer {
     case line(GeoJSON.LineString, stroke: Color, strokeWidth: Double = 2)
     case polygon(GeoJSON.Polygon, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
     case circle(GeoJSON.Position, radius: Double, fill: Color, stroke: Color? = nil, strokeWidth: Double = 2)
+#if canImport(CoreGraphics)
+    /// A raster image draped under the vector layers, sampled per output pixel
+    /// via the projection's `inverse(_:)`. SVG output omits this case in v1.
+    case baseMap(BaseMap)
+    /// A raster underlay backed by a `TileSource` — for slippy-map tiles or
+    /// pre-decoded high-resolution grids. Tiles are pre-fetched on the
+    /// async pipeline before the per-pixel sampler runs.
+    case tiledBaseMap(TiledBaseMap)
+#endif
   }
 
 }
@@ -200,6 +241,15 @@ extension GeoDrawer {
     case line([ProjectedLineString], stroke: Color, strokeWidth: Double)
     case polygon([ProjectedPolygon], fill: Color, stroke: Color?, strokeWidth: Double)
     case circle(Point, radius: Double, fill: Color, stroke: Color?, strokeWidth: Double)
+#if canImport(CoreGraphics)
+    /// Pass-through case. The raster is rendered later, against the active
+    /// drawing context, since per-pixel inverse projection has nothing to do
+    /// with per-vertex projection.
+    case baseMap(BaseMap)
+    /// Pass-through; the tile prefetcher and per-pixel sampler run later
+    /// during the draw step.
+    case tiledBaseMap(TiledBaseMap)
+#endif
   }
 }
 
@@ -226,6 +276,12 @@ extension GeoDrawer {
     case let .circle(center, radius, fill, stroke, strokeWidth):
       guard let point = converter(center, coordinateSystem) else { return nil }
       return .circle(point, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
+#if canImport(CoreGraphics)
+    case let .baseMap(baseMap):
+      return .baseMap(baseMap)
+    case let .tiledBaseMap(tiled):
+      return .tiledBaseMap(tiled)
+#endif
     }
   }
 

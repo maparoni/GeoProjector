@@ -51,8 +51,10 @@ extension Projections {
     var phiOne: Double = 0
     
     public let projectionSize: Size
-    
+
     public let mapBounds: MapBounds = .rectangle
+
+    public let wrapsLongitudinally: Bool = true
 
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
@@ -112,8 +114,10 @@ extension Projections {
     
     public let projectionSize: Size =
       .init(width: 2 * .pi, height: 2 * .pi)
-    
+
     public let mapBounds: MapBounds = .rectangle
+
+    public let wrapsLongitudinally: Bool = true
 
     public func project(_ point: Point) -> Point? {
       var adjusted = Projections.adjust(point, reference: reference)
@@ -144,8 +148,10 @@ extension Projections {
     
     public let projectionSize: Size =
       .init(width: 2 * .pi, height: 4)
-    
+
     public let mapBounds: MapBounds = .rectangle
+
+    public let wrapsLongitudinally: Bool = true
 
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
