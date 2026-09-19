@@ -62,7 +62,11 @@ public class GeoMapView: NSView {
     }
   }
 
-  public var mapBackdrop: NSColor = .white {
+  /// Colour drawn outside the projection's image. `nil` (the default)
+  /// leaves the area transparent so whatever's behind the view — the
+  /// SwiftUI parent, the window background — shows through. Set to a
+  /// concrete `NSColor` to paint an opaque backdrop instead.
+  public var mapBackdrop: NSColor? = nil {
     didSet {
       setNeedsDisplay(bounds)
     }
@@ -236,7 +240,7 @@ public class GeoMapView: NSView {
       projected,
       mapBackground: mapBackground.cgColor,
       mapOutline: mapOutline.cgColor,
-      mapBackdrop: mapBackdrop.cgColor,
+      mapBackdrop: mapBackdrop?.cgColor,
       in: context
     )
 
