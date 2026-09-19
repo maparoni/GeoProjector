@@ -18,7 +18,7 @@ import GeoProjector
 
 extension GeoDrawer {
   
-  private var coordinateSystem: CoordinateSystem {
+  var coordinateSystem: CoordinateSystem {
     #if os(macOS)
     .bottomLeft
     #else

@@ -212,7 +212,7 @@ public class GeoMapView: NSView {
     //     previously-projected content against it is correct — same
     //     layers as before the toggle, just briefly.
     let activeDrawer: GeoDrawer
-    let projected: [GeoDrawer.ProjectedContent]
+    let projected: [GeoDrawer.CGProjectedContent]
     switch projectProgress {
     case let .busy(_, .some(previously)):
       if let stale = _previousDrawer {
@@ -256,8 +256,8 @@ public class GeoMapView: NSView {
   // MARK: - Performance
 
   enum ProjectionProgress {
-    case finished([GeoDrawer.ProjectedContent])
-    case busy(Task<Void, Never>, previously: [GeoDrawer.ProjectedContent]?)
+    case finished([GeoDrawer.CGProjectedContent])
+    case busy(Task<Void, Never>, previously: [GeoDrawer.CGProjectedContent]?)
     case idle
   }
 
@@ -291,7 +291,7 @@ public class GeoMapView: NSView {
   }
 
   private func invalidateProjectedContents() {
-    let previous: [GeoDrawer.ProjectedContent]?
+    let previous: [GeoDrawer.CGProjectedContent]?
     switch projectProgress {
     case .finished(let projected):
       previous = projected
@@ -307,7 +307,7 @@ public class GeoMapView: NSView {
     projectProgress = .busy(Task.detached(priority: .high) { [weak self] in
       guard let self else { return }
       do {
-        let projected = try await drawer.projectInParallel(contents, coordinateSystem: .bottomLeft)
+        let projected = try await drawer.projectInParallelCG(contents, coordinateSystem: .bottomLeft)
         if Task.isCancelled { return }
 
         // Pre-warm the raster caches off the main thread using whatever
