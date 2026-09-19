@@ -37,6 +37,7 @@ struct ContentView_macOS: View {
 
   @State private var hoverCoord: GeoJSON.Position?
   @State private var lockedCoord: GeoJSON.Position?
+  @State private var hoveredFailedTileCount: Int?
 
   var body: some View {
     HSplitView {
@@ -51,7 +52,11 @@ struct ContentView_macOS: View {
             zoomTo: model.zoomTo?.0,
             insets: model.insets,
             mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
-            mapOutline: colorScheme == .dark ? .white : .black
+            mapOutline: colorScheme == .dark ? .white : .black,
+            quality: model.renderQuality.asQuality,
+            onTileProgress: { progress in
+              model.tileProgress = progress
+            }
           )
           .onContinuousHover { phase in
             switch phase {
@@ -66,12 +71,21 @@ struct ContentView_macOS: View {
               lockedCoord = coord
             }
           }
+          .overlay(alignment: .bottomTrailing) {
+            TileProgressOverlay(
+              attribution: model.baseMapMode.attribution,
+              progress: model.tileProgress,
+              onFailureHoverChange: { hoveredFailedTileCount = $0 }
+            )
+            .padding(8)
+          }
         }
         .padding()
 
         MapStatusBar(
           live: hoverCoord,
           locked: lockedCoord,
+          failedTileCount: hoveredFailedTileCount,
           onCopy: copyLockedCoord,
           onDiscard: { lockedCoord = nil }
         )
@@ -100,12 +114,24 @@ struct ContentView_macOS: View {
 struct MapStatusBar: View {
   let live: GeoJSON.Position?
   let locked: GeoJSON.Position?
+  let failedTileCount: Int?
   let onCopy: () -> Void
   let onDiscard: () -> Void
 
   var body: some View {
     HStack(spacing: 8) {
-      if let locked {
+      // Hovering the warning icon in the overlay takes precedence over
+      // both the coord-hover and locked-coord states — it's a one-off
+      // explanatory mode.
+      if let failedTileCount {
+        Image(systemName: "exclamationmark.triangle.fill")
+          .foregroundStyle(.yellow)
+        Text(failedTileCount == 1
+             ? "1 tile failed to load"
+             : "\(failedTileCount) tiles failed to load")
+          .foregroundStyle(.secondary)
+        Spacer()
+      } else if let locked {
         Image(systemName: "mappin.circle.fill")
           .foregroundStyle(.tint)
         Text(formatCoord(locked))
@@ -159,9 +185,21 @@ struct ContentView_iOS: View {
         zoomTo: model.zoomTo?.0,
         insets: model.insets,
         mapBackground: colorScheme == .dark ? .systemPurple : .systemTeal,
-        mapOutline: colorScheme == .dark ? .white : .black
+        mapOutline: colorScheme == .dark ? .white : .black,
+        quality: model.renderQuality.asQuality,
+        onTileProgress: { progress in
+          model.tileProgress = progress
+        }
       )
-      
+      .overlay(alignment: .bottomTrailing) {
+        TileProgressOverlay(
+          attribution: model.baseMapMode.attribution,
+          progress: model.tileProgress,
+          onFailureHoverChange: { _ in }
+        )
+        .padding(8)
+      }
+
       ScrollView {
         OptionsView(model: model)
       }
@@ -170,6 +208,57 @@ struct ContentView_iOS: View {
   }
 }
 #endif
+
+/// Bottom-right corner of the map: shows the active source's
+/// attribution alongside a circular progress indicator while tiles are
+/// loading and a warning triangle if any have failed. macOS uses the
+/// hover callback to route the failure count into the status bar.
+struct TileProgressOverlay: View {
+  let attribution: String?
+  let progress: TileFetchProgress?
+  /// macOS-only — non-nil count while the warning icon is hovered.
+  let onFailureHoverChange: (Int?) -> Void
+
+  var body: some View {
+    HStack(spacing: 6) {
+      if let progress, !progress.isComplete {
+        ProgressView(value: progress.fraction)
+          .progressViewStyle(.circular)
+          .controlSize(.small)
+          .help("Loading tiles — \(Int(progress.fraction * 100))%")
+      }
+      if let progress, progress.failed > 0 {
+        Image(systemName: "exclamationmark.triangle.fill")
+          .foregroundStyle(.yellow)
+          .help(progress.failed == 1
+                ? "1 tile failed to load"
+                : "\(progress.failed) tiles failed to load")
+#if os(macOS)
+          .onHover { hovering in
+            onFailureHoverChange(hovering ? progress.failed : nil)
+          }
+#endif
+      }
+      if let attribution {
+        AttributionLabel(text: attribution)
+      }
+    }
+  }
+}
+
+struct AttributionLabel: View {
+  let text: String
+
+  var body: some View {
+    Text(text)
+      .font(.caption2)
+      .padding(.horizontal, 6)
+      .padding(.vertical, 3)
+      .background(Color.black.opacity(0.6))
+      .foregroundStyle(.white)
+      .clipShape(RoundedRectangle(cornerRadius: 4))
+  }
+}
 
 struct OptionsView: View {
   @ObservedObject var model: ContentView.Model
@@ -195,6 +284,26 @@ struct OptionsView: View {
         }
       }
 #endif
+
+      GroupBox("Base map") {
+        Picker("Base map", selection: $model.baseMapMode) {
+          ForEach(ContentView.BaseMapMode.allCases) {
+            Text($0.label).tag($0)
+          }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+      }
+
+      GroupBox("Render quality") {
+        Picker("Render quality", selection: $model.renderQuality) {
+          ForEach(ContentView.RenderQuality.allCases) {
+            Text($0.label).tag($0)
+          }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+      }
 
       GroupBox("Reference") {
         HStack {

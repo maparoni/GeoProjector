@@ -67,6 +67,18 @@ public protocol Projection {
   var mapBounds: MapBounds { get }
 
   var invertCheck: ((GeoJSON.Polygon) -> Bool)? { get }
+
+  /// Whether this projection's image covers a full 360° longitudinal span
+  /// and joins continuously across the antimeridian. Equator-aligned
+  /// cylindrical projections (Equirectangular, Mercator, Gall–Peters) wrap;
+  /// pseudocylindrical, azimuthal, and transverse cylindrical projections
+  /// do not.
+  ///
+  /// Used by raster base-map sampling: when wrapping, longitudes that fall
+  /// just past ±180° are sampled from the opposite edge of the source image
+  /// (no antimeridian seam); when not wrapping, those samples are skipped.
+  /// Default is `false`.
+  var wrapsLongitudinally: Bool { get }
 }
 
 extension Projection {
@@ -79,6 +91,8 @@ extension Projection {
       size: projectionSize
     )
   }
+
+  public var wrapsLongitudinally: Bool { false }
 
 }
 

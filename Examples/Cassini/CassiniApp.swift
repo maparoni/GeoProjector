@@ -26,16 +26,25 @@ struct CassiniApp: App {
   }
     
   var windowContent: some View {
-    ContentView(model: .init(layers: [
-      .init(
-        name: "Continents",
-        contents: try! GeoDrawer.Content.content(
-          for: GeoDrawer.Content.countries(),
-          style: .init(color: CassiniApp.Colors.continents.cgColor)
-        ),
-        color: CassiniApp.Colors.continents.cgColor
-      )
-    ]))
+    // iOS doesn't expose the layers list yet, so default to the Blue Marble
+    // raster on its own there, with the vector continents hidden.
+#if os(macOS)
+    let continentsVisible = true
+    let baseMapMode = ContentView.BaseMapMode.none
+#else
+    let continentsVisible = false
+    let baseMapMode = ContentView.BaseMapMode.blueMarble
+#endif
+    let continents = ContentView.Layer(
+      name: "Continents",
+      contents: try! GeoDrawer.Content.content(
+        for: GeoDrawer.Content.countries(),
+        style: .init(color: CassiniApp.Colors.continents.cgColor)
+      ),
+      color: CassiniApp.Colors.continents.cgColor,
+      visible: continentsVisible
+    )
+    return ContentView(model: .init(layers: [continents], baseMapMode: baseMapMode))
   }
 }
 

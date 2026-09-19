@@ -11,11 +11,68 @@ import Foundation
 import CoreGraphics
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
 import GeoJSONKit
 import GeoDrawer
 import GeoProjectorDanseiji
 
 extension ContentView {
+
+  /// Render-quality choices exposed in Cassini's UI. Maps to the
+  /// underlying `GeoMap.Quality` enum at use-site. The `.custom(_)`
+  /// library case isn't exposed here because there's no good UI for
+  /// a free-form Double in the demo.
+  enum RenderQuality: String, CaseIterable, Identifiable {
+    case draft
+    case standard
+    case matchDisplay
+
+    var id: String { rawValue }
+
+    var label: String {
+      switch self {
+      case .draft: return "Draft"
+      case .standard: return "Standard"
+      case .matchDisplay: return "Display"
+      }
+    }
+
+    var asQuality: GeoMap.Quality {
+      switch self {
+      case .draft: return .draft
+      case .standard: return .standard
+      case .matchDisplay: return .matchDisplay
+      }
+    }
+  }
+
+  enum BaseMapMode: String, CaseIterable, Identifiable {
+    case none
+    case blueMarble
+    case openStreetMap
+
+    var id: String { rawValue }
+
+    var label: String {
+      switch self {
+      case .none: return "None"
+      case .blueMarble: return "Blue Marble"
+      case .openStreetMap: return "OpenStreetMap"
+      }
+    }
+
+    var attribution: String? {
+      switch self {
+      case .none, .blueMarble: return nil
+      case .openStreetMap: return "© OpenStreetMap contributors"
+      }
+    }
+  }
 
   enum ProjectionType: String, CaseIterable, Identifiable {
     case equirectangular
@@ -68,9 +125,10 @@ extension ContentView {
   }
   
   class Model: ObservableObject {
-    init(layers: [Layer] = []) {
+    init(layers: [Layer] = [], baseMapMode: BaseMapMode = .none) {
       self.layers = layers
       self.projection = Projections.Orthographic()
+      self.baseMapMode = baseMapMode
     }
     
     @Published var layers: [Layer]
@@ -95,12 +153,40 @@ extension ContentView {
     @Published var equirectangularPhiOne: Double = 0 {
       didSet { updateProjection() }
     }
-    
+
     @Published var insets: GeoProjector.EdgeInsets = .zero {
       didSet { updateProjection() }
     }
-    
+
     @Published var zoomTo: (GeoJSON.BoundingBox, Layer.ID)?
+
+    @AppStorage("options.baseMap")
+    var baseMapMode: BaseMapMode = .none {
+      didSet {
+        // Drop any stale tile progress when the source changes — the
+        // overlay shouldn't show a count from the previous source.
+        if baseMapMode != oldValue { tileProgress = nil }
+      }
+    }
+
+    @AppStorage("options.renderQuality")
+    var renderQuality: RenderQuality = .matchDisplay
+
+    /// Latest tile-fetch progress snapshot for the active tiled base
+    /// map. Nil when there isn't (or hasn't yet been) a fetch in
+    /// flight for the current selection.
+    @Published var tileProgress: TileFetchProgress?
+
+    /// Lazily-decoded NASA Blue Marble Next Generation base map. The asset is
+    /// shipped in the Cassini asset catalogue (5400×2700 equirectangular JPEG
+    /// from the 2004-08 monthly composite). The decode happens once on first
+    /// toggle and is cached for the app's lifetime.
+    private lazy var _blueMarble: GeoDrawer.BaseMap? = BlueMarble.load()
+
+    /// Lazily-built OpenStreetMap slippy-map tile source. Tiles are fetched
+    /// over HTTP via `URLTemplateTileSource` and decoded by the bundled
+    /// CoreGraphics decoder. The auto zoom level adapts to the canvas size.
+    private lazy var _osm: GeoDrawer.TiledBaseMap? = OpenStreetMap.makeTiledBaseMap()
     
     func updateProjection() {
       let reference = GeoJSON.Position(latitude: refLat, longitude: refLng)
@@ -138,11 +224,26 @@ extension ContentView {
     }
     
     var visibleContents: [GeoDrawer.Content] {
-      layers
+      var result: [GeoDrawer.Content] = []
+      // Base map renders first so the vector layers land on top.
+      switch baseMapMode {
+      case .none:
+        break
+      case .blueMarble:
+        if let bm = _blueMarble {
+          result.append(.baseMap(bm))
+        }
+      case .openStreetMap:
+        if let tiled = _osm {
+          result.append(.tiledBaseMap(tiled))
+        }
+      }
+      result.append(contentsOf: layers
         .filter(\.visible)
         .flatMap { layer in
           layer.contents.map { $0.settingColor(layer.color) }
-        }
+        })
+      return result
     }
 
     /// The same projected `Rect` that `GeoDrawer` (and therefore `GeoMap`) uses for the
@@ -184,9 +285,11 @@ extension ContentView {
           acc.append(contentsOf: line.positions)
         case .polygon(let polygon, _, _, _):
           acc.append(contentsOf: polygon.exterior.positions)
+        case .baseMap, .tiledBaseMap:
+          break
         }
       }
-      
+
       if positions.isEmpty {
         zoomTo = nil
       } else {
@@ -198,7 +301,7 @@ extension ContentView {
 }
 
 extension GeoDrawer.Content {
-  
+
   func settingColor(_ color: CGColor) -> GeoDrawer.Content {
     switch self {
     case .line(let lineString, _, let strokeWidth):
@@ -207,7 +310,50 @@ extension GeoDrawer.Content {
       return .polygon(polygon, fill: color, strokeWidth: strokeWidth)
     case .circle(let position, let radius, _, _, let strokeWidth):
       return .circle(position, radius: radius, fill: color, strokeWidth: strokeWidth)
+    case .baseMap, .tiledBaseMap:
+      return self
     }
   }
-  
+
+}
+
+// MARK: - Blue Marble base map
+
+/// Loads NASA's Blue Marble Next Generation 2004-08 composite from the bundled
+/// asset catalogue. Source: https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/
+enum BlueMarble {
+  static let assetName = "world.200408.3x5400x2700"
+
+  static func load() -> GeoDrawer.BaseMap? {
+#if canImport(UIKit)
+    guard let image = UIImage(named: assetName) else { return nil }
+    return GeoDrawer.BaseMap(uiImage: image, sampling: .bilinear, alpha: 1.0)
+#elseif canImport(AppKit)
+    guard let image = NSImage(named: assetName) else { return nil }
+    return GeoDrawer.BaseMap(nsImage: image, sampling: .bilinear, alpha: 1.0)
+#else
+    return nil
+#endif
+  }
+}
+
+// MARK: - OpenStreetMap tile source
+
+/// Builds a `TiledBaseMap` over the public OpenStreetMap tile servers.
+/// Sends a non-default `User-Agent` (OSM's tile usage policy requires
+/// identifying the application) and lets the renderer pick a zoom level
+/// that matches the live canvas size.
+enum OpenStreetMap {
+  static func makeTiledBaseMap() -> GeoDrawer.TiledBaseMap {
+    let source = URLTemplateTileSource(
+      template: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      projection: Projections.Mercator(),
+      tileSize: 256,
+      minZoom: 0,
+      maxZoom: 19,
+      attribution: "© OpenStreetMap contributors",
+      userAgent: "Cassini Demo (https://github.com/maparoni/GeoProjector)"
+    )
+    return GeoDrawer.TiledBaseMap(source: source)
+  }
 }
