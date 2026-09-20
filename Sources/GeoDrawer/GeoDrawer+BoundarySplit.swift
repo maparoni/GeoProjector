@@ -214,6 +214,13 @@ extension GeoDrawer {
   /// invariant that consecutive points are within `Interpolator.maxDiff` in
   /// projected space — a jump of `halfWidth` (or `halfHeight`) is far above
   /// any noise from interpolation.
+  ///
+  /// That invariant is not free: `Interpolator.interpolateInto` stops
+  /// subdividing as soon as a span projects straight, so `projectLine` runs
+  /// `Interpolator.densify` afterwards to guarantee it. Without that pass a
+  /// smooth-but-sparse span — a meridian spanning most of a cylindrical
+  /// map, say — reads exactly like a seam crossing here, and gets split
+  /// into two pieces with an empty middle.
   private static func wrapShift(from a: Point, to b: Point, projectionSize: Size) -> Point? {
     let halfW = projectionSize.width / 2
     let halfH = projectionSize.height / 2

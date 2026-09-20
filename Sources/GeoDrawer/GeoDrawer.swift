@@ -372,7 +372,22 @@ extension GeoDrawer {
       )
     }
     output.append((unprojected.last!, projectedVertices.last!))
-    return output
+
+    // 4. Step 3's shortcut bails as soon as a span projects straight, which
+    //    can leave adjacent points half a map apart. `boundarySplit` reads
+    //    the gap between consecutive points as a wrap signal, so restore the
+    //    invariant before handing off. The quarter-size step keeps a
+    //    comfortable margin under `wrapShift`'s half-size trigger while
+    //    costing only a couple of extra bisections per straight span.
+    return Interpolator.densify(
+      output,
+      maxProjectedStep: Point(
+        x: projection.projectionSize.width / 4,
+        y: projection.projectionSize.height / 4
+      ),
+      minUnprojectedStep: maxDiff,
+      projector: projection.project(_:)
+    )
   }
 
   private static func convertLine(_ positions: [GeoJSON.Position], projection: Projection?, size: Size, zoomTo: Rect?, insets: EdgeInsets, coordinateSystem: CoordinateSystem, converter: (GeoJSON.Position, CoordinateSystem) -> Point?, close: Bool) -> [[Point]] {
