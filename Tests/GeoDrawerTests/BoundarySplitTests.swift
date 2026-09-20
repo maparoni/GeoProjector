@@ -416,6 +416,146 @@ struct BoundarySplitTests {
       }
     }
   }
+
+  // MARK: - Meridian rendering in cylindrical projections
+  //
+  // Regression for the "vertical graticule lines missing in Mercator /
+  // Equirectangular / Gall-Peters" bug. A two-point meridian from
+  // (lon, -70) to (lon, 70) projects to two points whose y-separation
+  // exceeds half the projection height, and the old wrap heuristic
+  // treated that as a top/bottom seam crossing and split the line into
+  // top+bottom fragments with an empty middle.
+
+  private func fullMeridianCovers(projection: Projection, size: GeoProjector.Size, lon: Double, latSpan: Double = 70) -> Bool {
+    let drawer = GeoDrawer(size: size, projection: projection)
+    let meridian = GeoJSON.LineString(positions: [
+      GeoJSON.Position(latitude: -latSpan, longitude: lon),
+      GeoJSON.Position(latitude:  latSpan, longitude: lon),
+    ])
+    let pieces = drawer.project(meridian, coordinateSystem: .bottomLeft)
+    // A well-drawn meridian is a single continuous vertical line — one
+    // piece. Even if the algorithm ever returns multiple pieces, the
+    // union of their y ranges should still cover the two endpoints
+    // without an interior gap.
+    guard let allYs = pieces.first?.points.map(\.y), !pieces.isEmpty else { return false }
+    var yMin = allYs.min() ?? .infinity
+    var yMax = allYs.max() ?? -.infinity
+    for piece in pieces.dropFirst() {
+      for pt in piece.points {
+        yMin = min(yMin, pt.y)
+        yMax = max(yMax, pt.y)
+      }
+    }
+    // Endpoints should span most of the canvas height.
+    return yMax - yMin > size.height * 0.5
+  }
+
+  @Test func mercatorMeridianIsContinuous() {
+    let size = GeoProjector.Size(width: 1000, height: 800)
+    for lon in stride(from: -170.0, through: 170.0, by: 10.0) {
+      let proj = Projections.Mercator(reference: .init(x: 77.5.toRadians(), y: -3.6.toRadians()))
+      #expect(fullMeridianCovers(projection: proj, size: size, lon: lon),
+              "Mercator meridian at lon=\(lon) is missing / truncated")
+    }
+  }
+
+  @Test func equirectangularMeridianIsContinuous() {
+    let size = GeoProjector.Size(width: 1000, height: 500)
+    for lon in stride(from: -170.0, through: 170.0, by: 30.0) {
+      let proj = Projections.Equirectangular()
+      #expect(fullMeridianCovers(projection: proj, size: size, lon: lon),
+              "Equirectangular meridian at lon=\(lon) is missing / truncated")
+    }
+  }
+
+  @Test func gallPetersMeridianIsContinuous() {
+    let size = GeoProjector.Size(width: 1000, height: 640)
+    for lon in stride(from: -170.0, through: 170.0, by: 30.0) {
+      let proj = Projections.GallPeters()
+      #expect(fullMeridianCovers(projection: proj, size: size, lon: lon),
+              "Gall-Peters meridian at lon=\(lon) is missing / truncated")
+    }
+  }
+
+  /// Total on-screen length of a projected polyline set.
+  private func drawnLength(_ pieces: [GeoDrawer.ProjectedLineString]) -> Double {
+    var total = 0.0
+    for piece in pieces {
+      for (a, b) in zip(piece.points.dropLast(), piece.points.dropFirst()) {
+        total += ((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)).squareRoot()
+      }
+    }
+    return total
+  }
+
+  /// A full-circumference parallel must draw across the canvas whatever the
+  /// reference longitude. At reference 0 the endpoints land exactly on the
+  /// antimeridian seam, the interpolator's linearity shortcut emits no
+  /// interior points (midpoint lon 0 projects to x=0, which *is* the
+  /// straight-line midpoint of ±π), and `boundarySplit` then split a
+  /// two-point line whose endpoints already sit on the seam — yielding two
+  /// zero-length pieces hugging the edges and nothing visible.
+  @Test func parallelsDrawAtAnyReferenceLongitude() {
+    let size = GeoProjector.Size(width: 1000, height: 1000)
+    for refLon in [0.0, 45.0, 77.5, -120.0] {
+      let ref = Point(x: refLon.toRadians(), y: 0)
+      let projections: [(String, Projection)] = [
+        ("Equirectangular", Projections.Equirectangular(reference: ref)),
+        ("Mercator", Projections.Mercator(reference: ref)),
+        ("GallPeters", Projections.GallPeters(reference: ref)),
+      ]
+      for (name, proj) in projections {
+        let drawer = GeoDrawer(size: size, projection: proj)
+        for lat in [0.0, 30.0, -60.0] {
+          let parallel = GeoJSON.LineString(positions: [
+            .init(latitude: lat, longitude: -180),
+            .init(latitude: lat, longitude:  180),
+          ])
+          let pieces = drawer.project(parallel, coordinateSystem: .bottomLeft)
+          let length = drawnLength(pieces)
+          #expect(length > size.width * 0.9,
+                  "\(name) ref=\(refLon) lat=\(lat): parallel drew \(Int(length))px, expected ~\(Int(size.width))px")
+        }
+      }
+    }
+  }
+
+  // Cassini genuinely wraps top-to-bottom: its transverse cylinder folds
+  // the far hemisphere (|lon| > 90° from centre) around the top and
+  // bottom edges. A far-hemisphere meridian must therefore render as at
+  // least two pieces anchored on opposite y-edges — a straight vertical
+  // line across the full canvas would be wrong.
+  @Test func cassiniFarHemisphereMeridianWraps() {
+    let size = GeoProjector.Size(width: 500, height: 1000)
+    let proj = Projections.Cassini()
+    for lon in [-170.0, -140.0, -110.0, 110.0, 140.0, 170.0] {
+      let drawer = GeoDrawer(size: size, projection: proj)
+      let meridian = GeoJSON.LineString(positions: [
+        GeoJSON.Position(latitude: -70, longitude: lon),
+        GeoJSON.Position(latitude:  70, longitude: lon),
+      ])
+      let pieces = drawer.project(meridian, coordinateSystem: .bottomLeft)
+      #expect(pieces.count >= 2,
+              "Cassini far-hemisphere meridian at lon=\(lon) should split at the top/bottom seam; got \(pieces.count) piece(s)")
+    }
+  }
+
+  // Near-hemisphere Cassini meridians must NOT wrap — they're regular
+  // continuous curves in the middle of the projection.
+  @Test func cassiniNearHemisphereMeridianIsContinuous() {
+    let size = GeoProjector.Size(width: 500, height: 1000)
+    let proj = Projections.Cassini()
+    for lon in [-80.0, -40.0, 0.0, 40.0, 80.0] {
+      let drawer = GeoDrawer(size: size, projection: proj)
+      let meridian = GeoJSON.LineString(positions: [
+        GeoJSON.Position(latitude: -70, longitude: lon),
+        GeoJSON.Position(latitude:  70, longitude: lon),
+      ])
+      let pieces = drawer.project(meridian, coordinateSystem: .bottomLeft)
+      #expect(pieces.count == 1,
+              "Cassini near-hemisphere meridian at lon=\(lon) should not split; got \(pieces.count) piece(s)")
+    }
+  }
 }
 
 // MARK: - Performance probes (manual; not part of regular suite)

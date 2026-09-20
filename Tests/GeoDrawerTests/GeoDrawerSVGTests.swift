@@ -32,7 +32,7 @@
       let expectedSVG = """
         <?xml version="1.0" encoding="UTF-8"?>
         <svg width="400.0" height="200.0" viewBox="0 0 400.0 200.0" xmlns="http://www.w3.org/2000/svg">
-        <path d="M 100.0 100.0 L 300.0 100.0" stroke="#FF0000" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <path d="M 100.0 100.0 L 200.0 100.0 L 300.0 100.0" stroke="#FF0000" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" fill="none" />
         </svg>
         """
 
