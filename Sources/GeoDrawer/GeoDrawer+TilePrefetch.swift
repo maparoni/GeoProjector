@@ -141,7 +141,7 @@ extension GeoDrawer {
   /// callers can drive progress UIs and schedule redraws. The caller is
   /// responsible for debouncing the resulting redraws when tiles arrive
   /// in a tight burst.
-  func prefetchTiles(
+  public func prefetchTiles(
     for tiledBaseMap: TiledBaseMap,
     onProgress: (@Sendable (TileFetchProgress) -> Void)? = nil
   ) async {
@@ -198,6 +198,24 @@ extension GeoDrawer {
         }
         onProgress?(TileFetchProgress(total: totalNeeded, loaded: loaded, failed: failed))
       }
+    }
+  }
+}
+
+extension GeoDrawer {
+
+  /// Pre-fetches the tiles for every `.tiledBaseMap` in `contents` so a
+  /// subsequent synchronous `drawSVG` (or CoreGraphics draw) finds them in
+  /// the drawer's tile cache. Other content is ignored. Base maps are
+  /// fetched one after the other; `onProgress` reports each one's own
+  /// progress.
+  public func prefetchTiles(
+    for contents: [Content],
+    onProgress: (@Sendable (TileFetchProgress) -> Void)? = nil
+  ) async {
+    for content in contents {
+      guard case let .tiledBaseMap(tiled) = content else { continue }
+      await prefetchTiles(for: tiled, onProgress: onProgress)
     }
   }
 }

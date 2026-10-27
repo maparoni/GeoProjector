@@ -25,6 +25,9 @@ let package = Package(
     .package(url: "https://github.com/maparoni/geojsonkit-turf", from: "0.1.0"),
 //    .package(name: "geojsonkit-turf", path: "../GeoJSONKit-Turf"),
     .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
+    // swift-png's dependencies need Swift 6.0 tools, so Swift 5 compilers
+    // are no longer supported.
+    .package(url: "https://github.com/tayloraswift/swift-png.git", from: "4.5.0"),
   ],
   targets: [
     .target(
@@ -60,6 +63,7 @@ let package = Package(
       dependencies: [
         "GeoProjector",
         .product(name: "Algorithms", package: "swift-algorithms"),
+        .product(name: "PNG", package: "swift-png"),
       ]),
     .testTarget(
       name: "GeoDrawerTests",

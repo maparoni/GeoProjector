@@ -24,12 +24,14 @@ import FoundationNetworking
 ///
 /// Image decoding is performed by a caller-supplied closure so the type is
 /// platform-agnostic. On Apple platforms a CoreGraphics-backed default is
-/// available as `TileImage.coreGraphicsDecoder`; on Linux pass your own
-/// (e.g. wrapping `swift-png`).
+/// available as `TileImage.coreGraphicsDecoder`; `TileImage.pngDecoder`
+/// (via `swift-png`) works everywhere but only handles PNG tiles.
 ///
 /// Most public tile servers require a meaningful `User-Agent` header
 /// identifying your application — OSM in particular returns HTTP 429 for
-/// requests without one. Pass `userAgent` to set it.
+/// requests without one. Pass `userAgent` to set it. Any other header the
+/// service wants on every request (e.g. an `Origin` for a key restricted
+/// to certain domains) goes in `headers`.
 public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
 
   public let template: String
@@ -45,6 +47,7 @@ public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
   public var tileSourceID: AnyHashable { template }
 
   private let userAgent: String?
+  private let headers: [String: String]
   private let urlSession: URLSession
   private let decoder: @Sendable (Data) throws -> TileImage?
 
@@ -56,6 +59,7 @@ public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
     maxZoom: Int = 19,
     attribution: String? = nil,
     userAgent: String? = nil,
+    headers: [String: String] = [:],
     urlSession: URLSession = .shared,
     decoder: @escaping @Sendable (Data) throws -> TileImage?
   ) {
@@ -66,13 +70,15 @@ public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
     self.maxZoom = maxZoom
     self.attribution = attribution
     self.userAgent = userAgent
+    self.headers = headers
     self.urlSession = urlSession
     self.decoder = decoder
   }
 
-#if canImport(CoreGraphics)
-  /// Apple-platform convenience: defaults the decoder to
-  /// `TileImage.coreGraphicsDecoder` and the projection to Web Mercator.
+  /// Convenience that defaults the projection to Web Mercator and the
+  /// decoder to the platform's default: `TileImage.coreGraphicsDecoder`
+  /// on Apple platforms (PNG, JPEG, WebP, …), `TileImage.pngDecoder`
+  /// elsewhere (PNG only — pass your own `decoder` for JPEG tiles).
   public init(
     template: String,
     projection: any Projection = Projections.Mercator(),
@@ -81,6 +87,7 @@ public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
     maxZoom: Int = 19,
     attribution: String? = nil,
     userAgent: String? = nil,
+    headers: [String: String] = [:],
     urlSession: URLSession = .shared
   ) {
     self.init(
@@ -91,11 +98,19 @@ public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
       maxZoom: maxZoom,
       attribution: attribution,
       userAgent: userAgent,
+      headers: headers,
       urlSession: urlSession,
-      decoder: TileImage.coreGraphicsDecoder
+      decoder: Self.defaultDecoder
     )
   }
+
+  private static var defaultDecoder: @Sendable (Data) throws -> TileImage? {
+#if canImport(CoreGraphics) && canImport(ImageIO)
+    TileImage.coreGraphicsDecoder
+#else
+    TileImage.pngDecoder
 #endif
+  }
 
   public func tile(for key: TileKey) async throws -> TileImage? {
     guard contains(key) else { return nil }
@@ -106,6 +121,9 @@ public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
     var request = URLRequest(url: url)
     if let userAgent {
       request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+    }
+    for (field, value) in headers {
+      request.setValue(value, forHTTPHeaderField: field)
     }
 
     let (data, response) = try await fetchData(for: request)

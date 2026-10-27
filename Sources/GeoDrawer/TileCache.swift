@@ -43,5 +43,18 @@ extension GeoDrawer {
       lock.lock(); defer { lock.unlock() }
       return entries[key] != nil
     }
+
+    /// Every cached tile of `sourceID` at zoom `z`, under one lock
+    /// acquisition. The renderer snapshots these before its per-pixel
+    /// sweep rather than probing the whole `2^z × 2^z` grid, which at
+    /// street-level zooms would mean hundreds of millions of lookups.
+    func tiles(for sourceID: AnyHashable, zoom z: Int) -> [TileKey: TileImage] {
+      lock.lock(); defer { lock.unlock() }
+      var result: [TileKey: TileImage] = [:]
+      for (key, image) in entries where key.sourceID == sourceID && key.tileKey.z == z {
+        result[key.tileKey] = image
+      }
+      return result
+    }
   }
 }
