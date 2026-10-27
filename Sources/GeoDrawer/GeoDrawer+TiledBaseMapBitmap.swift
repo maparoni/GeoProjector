@@ -39,22 +39,14 @@ extension GeoDrawer {
     let tileSize = source.tileSize
     let totalSize = Size(width: Double(tileSize * n), height: Double(tileSize * n))
 
-    // Snapshot the tile grid into a flat array up-front so the per-pixel
-    // sampler can look up tiles by integer index — no NSLock acquire and
-    // no `AnyHashable` hash per pixel. The drawer's `tileCache` is a
-    // shared resource (one lock per render's tile-snapshot, not per
-    // sample), and the per-pixel cost drops to a bounds-checked array
-    // load.
-    var tileGrid: [TileImage?] = Array(repeating: nil, count: n * n)
-    for ty in 0..<n {
-      for tx in 0..<n {
-        let cacheKey = GeoDrawer.TileCacheKey(
-          sourceID: sourceID,
-          tileKey: TileKey(z: z, x: tx, y: ty)
-        )
-        tileGrid[ty * n + tx] = tileCache.get(cacheKey)
-      }
-    }
+    // Snapshot the fetched tiles into a flat array covering just their
+    // extent, so the per-pixel sampler looks tiles up by integer index —
+    // no NSLock acquire and no `AnyHashable` hash per pixel. The drawer's
+    // `tileCache` is a shared resource (one lock per render's snapshot,
+    // not per sample), and the grid stays small even at street-level
+    // zooms where the full `2^z × 2^z` grid would be enormous.
+    let cached = tileCache.tiles(for: sourceID, zoom: z)
+    let grid = TileGrid(cached)
 
     let pixels = [UInt8](unsafeUninitializedCapacity: totalBytes) { buffer, initializedCount in
       buffer.initialize(repeating: 0)
@@ -75,7 +67,7 @@ extension GeoDrawer {
         gridDimension: n,
         sampling: tiledBaseMap.sampling,
         alpha: tiledBaseMap.alpha,
-        tileGrid: tileGrid,
+        tileGrid: grid,
         wrapsLongitudinally: source.projection.wrapsLongitudinally
       )
       DispatchQueue.concurrentPerform(iterations: height) { py in
@@ -85,6 +77,42 @@ extension GeoDrawer {
     }
 
     return RasterBitmap(width: width, height: height, pixels: pixels)
+  }
+}
+
+/// A flat row-major snapshot of fetched tiles covering only the bounding
+/// range of their `(x, y)` coordinates, for O(1) lookups by tile
+/// coordinate without touching the shared cache.
+struct TileGrid: Sendable {
+  private let minX: Int
+  private let minY: Int
+  private let width: Int
+  private let height: Int
+  private let tiles: [TileImage?]
+
+  init(_ cached: [TileKey: TileImage]) {
+    guard !cached.isEmpty else {
+      minX = 0; minY = 0; width = 0; height = 0; tiles = []
+      return
+    }
+    let xs = cached.keys.map(\.x)
+    let ys = cached.keys.map(\.y)
+    minX = xs.min()!
+    minY = ys.min()!
+    width = xs.max()! - minX + 1
+    height = ys.max()! - minY + 1
+    var grid: [TileImage?] = Array(repeating: nil, count: width * height)
+    for (key, image) in cached {
+      grid[(key.y - minY) * width + (key.x - minX)] = image
+    }
+    tiles = grid
+  }
+
+  subscript(x: Int, y: Int) -> TileImage? {
+    let gx = x - minX
+    let gy = y - minY
+    guard gx >= 0, gx < width, gy >= 0, gy < height else { return nil }
+    return tiles[gy * width + gx]
   }
 }
 
@@ -109,10 +137,9 @@ private struct TiledRasterContext: @unchecked Sendable {
   let gridDimension: Int
   let sampling: GeoDrawer.Sampling
   let alpha: Double
-  /// Flat row-major grid of the tiles this render needs — pre-resolved
-  /// from the shared `TileCache` once, before the per-pixel sweep
-  /// starts. Index is `ty * gridDimension + tx`.
-  let tileGrid: [TileImage?]
+  /// The fetched tiles, pre-resolved from the shared `TileCache` once
+  /// before the per-pixel sweep starts.
+  let tileGrid: TileGrid
   let wrapsLongitudinally: Bool
 
   func renderRow(_ py: Int) {
@@ -155,7 +182,7 @@ private struct TiledRasterContext: @unchecked Sendable {
       let ty = Int(syFull.rounded(.down)) / tileSize
       if tx < 0 || tx >= gridDimension || ty < 0 || ty >= gridDimension { continue }
 
-      guard let tile = tileGrid[ty * gridDimension + tx] else { continue }
+      guard let tile = tileGrid[tx, ty] else { continue }
 
       let tileX = sxFull - Double(tx * tileSize)
       let tileY = syFull - Double(ty * tileSize)

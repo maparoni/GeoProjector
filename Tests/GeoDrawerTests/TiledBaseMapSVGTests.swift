@@ -111,6 +111,38 @@ struct TiledBaseMapSVGTests {
     #expect(svg.contains("<image "))
   }
 
+  /// Street-level zooms have a 2^z × 2^z tile grid; the compositor must
+  /// only touch the tiles that were fetched, or a single render takes
+  /// minutes. A 64×64 canvas zoomed to a few blocks of Sydney at zoom 16.
+  @Test(.timeLimit(.minutes(1))) func streetLevelZoomRendersQuickly() async throws {
+    let box = GeoJSON.BoundingBox(positions: [
+      .init(latitude: -33.875, longitude: 151.20), .init(latitude: -33.86, longitude: 151.22),
+    ])
+    let drawer = GeoDrawer(size: .init(width: 64, height: 64), projection: Projections.Mercator(), zoomTo: box)
+
+    // Provide exactly the tiles the drawer needs at zoom 16, all green.
+    let probe = StaticTileSource(
+      projection: Projections.Mercator(), tileSize: Self.tileSize,
+      tiles: [TileKey(z: 16, x: 0, y: 0): Self.solidTile((0, 0, 0, 0))]
+    )
+    let needed = drawer.tilesNeeded(for: .init(source: probe, zoom: 16))
+    #expect(needed.count > 0 && needed.count < 200)
+    let tiles = Dictionary(uniqueKeysWithValues: needed.map { ($0, Self.solidTile((0, 128, 0, 255))) })
+    let source = StaticTileSource(projection: Projections.Mercator(), tileSize: Self.tileSize, tiles: tiles)
+    let contents: [GeoDrawer.Content] = [.tiledBaseMap(.init(source: source, zoom: 16, sampling: .nearest))]
+    await drawer.prefetchTiles(for: contents)
+
+    let start = Date()
+    let svg = drawer.drawSVG(contents)
+    #expect(Date().timeIntervalSince(start) < 5)
+
+    let base64 = try #require(Self.dataURIPayload(in: svg))
+    let png = try #require(Data(base64Encoded: base64))
+    let bitmap = try #require(try PNGCodec.decode(png))
+    let centre = bitmap.pixels[(32 * 64 + 32) * 4..<(32 * 64 + 32) * 4 + 4]
+    #expect(Array(centre) == [0, 128, 0, 255])
+  }
+
   @Test func pngCodecRoundTripsPremultipliedAlpha() throws {
     // 2×1: opaque red, then 50% green (premultiplied: 0,128,0,128).
     let bitmap = GeoDrawer.RasterBitmap(
