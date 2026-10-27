@@ -37,12 +37,30 @@
       }
     },
     {
+      "identity" : "swift-hash",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tayloraswift/swift-hash",
+      "state" : {
+        "revision" : "7fd5fb1753fe69bd6c04ecda36aab546cdcaae99",
+        "version" : "0.7.1"
+      }
+    },
+    {
       "identity" : "swift-numerics",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-numerics.git",
       "state" : {
         "revision" : "e0ec0f5f3af6f3e4d5e7a19d2af26b481acb6ba8",
         "version" : "1.0.3"
+      }
+    },
+    {
+      "identity" : "swift-png",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tayloraswift/swift-png.git",
+      "state" : {
+        "revision" : "2f68db3d6b3005035dc213275e8f35b6a4d0581f",
+        "version" : "4.4.9"
       }
     }
   ],

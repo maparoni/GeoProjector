@@ -54,11 +54,31 @@ extension GeoDrawer {
       )
     }
 
+    // Tiled base maps go under the vector layers but above the map
+    // background fill, composited into one PNG per base map and embedded as
+    // a data URI so renderers without network access (librsvg) still show
+    // them. Pixels outside the projection's image are transparent, so no
+    // clip path is needed. Tiles must already be in the drawer's cache —
+    // see `prefetchTiles(for:)`.
+    for content in contents {
+      guard case let .tiledBaseMap(tiled) = content else { continue }
+      let zoom = resolvedZoom(tiled.zoom, source: tiled.source)
+      guard let bitmap = renderTiledBaseMapBitmap(tiled, zoom: zoom) else { continue }
+      svg.addImage(
+        pngData: bitmap.pngData(),
+        x: 0, y: 0, width: size.width, height: size.height
+      )
+    }
+
     // Draw content (first pass - everything except circles)
     for content in contents {
       switch content {
       case .circle:
         break  // Draw circles on top
+      case .baseMap:
+        break  // SVG output omits single-image base maps
+      case .tiledBaseMap:
+        break  // Embedded above
       case let .line(lines, stroke, strokeWidth):
         for line in lines {
           svg.addLine(line, stroke: stroke, strokeWidth: strokeWidth)
@@ -67,10 +87,6 @@ extension GeoDrawer {
         for polygon in polygons {
           svg.addPolygon(polygon, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
         }
-#if canImport(CoreGraphics)
-      case .baseMap, .tiledBaseMap:
-        break  // SVG output omits raster base maps in v1
-#endif
       }
     }
 
@@ -86,12 +102,8 @@ extension GeoDrawer {
       case let .circle(position, radius, fill, stroke, strokeWidth):
         svg.addCircle(
           position, radius: radius, fill: fill, stroke: stroke, strokeWidth: strokeWidth)
-      case .line, .polygon:
+      case .line, .polygon, .baseMap, .tiledBaseMap:
         break  // Already drawn
-#if canImport(CoreGraphics)
-      case .baseMap, .tiledBaseMap:
-        break  // SVG output omits raster base maps in v1
-#endif
       }
     }
 
@@ -105,6 +117,10 @@ private struct SVGBuilder {
   private let width: Double
   private let height: Double
   private var elements: [String] = []
+  /// Set once an `<image>` is added: the element carries an `xlink:href`
+  /// alongside `href` for older renderers, which needs the namespace
+  /// declared on the root.
+  private var usesXlink = false
 
   init(width: Double, height: Double) {
     self.width = width
@@ -136,6 +152,23 @@ private struct SVGBuilder {
     }
 
     elements.append("<rect \(attributes.joined(separator: " ")) />")
+  }
+
+  mutating func addImage(
+    pngData: Data, x: Double, y: Double, width: Double, height: Double
+  ) {
+    let uri = "data:image/png;base64," + pngData.base64EncodedString()
+    let attributes = [
+      "x=\"\(formatNumber(x))\"",
+      "y=\"\(formatNumber(y))\"",
+      "width=\"\(formatNumber(width))\"",
+      "height=\"\(formatNumber(height))\"",
+      "preserveAspectRatio=\"none\"",
+      "href=\"\(uri)\"",
+      "xlink:href=\"\(uri)\"",
+    ]
+    usesXlink = true
+    elements.append("<image \(attributes.joined(separator: " ")) />")
   }
 
   mutating func addLine(
@@ -317,9 +350,10 @@ private struct SVGBuilder {
   }
 
   func build() -> String {
+    let xlink = usesXlink ? " xmlns:xlink=\"http://www.w3.org/1999/xlink\"" : ""
     let header = """
       <?xml version="1.0" encoding="UTF-8"?>
-      <svg width="\(formatNumber(width))" height="\(formatNumber(height))" viewBox="0 0 \(formatNumber(width)) \(formatNumber(height))" xmlns="http://www.w3.org/2000/svg">
+      <svg width="\(formatNumber(width))" height="\(formatNumber(height))" viewBox="0 0 \(formatNumber(width)) \(formatNumber(height))" xmlns="http://www.w3.org/2000/svg"\(xlink)>
       """
 
     let footer = "</svg>"

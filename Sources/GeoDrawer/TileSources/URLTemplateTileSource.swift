@@ -24,8 +24,8 @@ import FoundationNetworking
 ///
 /// Image decoding is performed by a caller-supplied closure so the type is
 /// platform-agnostic. On Apple platforms a CoreGraphics-backed default is
-/// available as `TileImage.coreGraphicsDecoder`; on Linux pass your own
-/// (e.g. wrapping `swift-png`).
+/// available as `TileImage.coreGraphicsDecoder`; `TileImage.pngDecoder`
+/// (via `swift-png`) works everywhere but only handles PNG tiles.
 ///
 /// Most public tile servers require a meaningful `User-Agent` header
 /// identifying your application — OSM in particular returns HTTP 429 for
@@ -70,9 +70,10 @@ public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
     self.decoder = decoder
   }
 
-#if canImport(CoreGraphics)
-  /// Apple-platform convenience: defaults the decoder to
-  /// `TileImage.coreGraphicsDecoder` and the projection to Web Mercator.
+  /// Convenience that defaults the projection to Web Mercator and the
+  /// decoder to the platform's default: `TileImage.coreGraphicsDecoder`
+  /// on Apple platforms (PNG, JPEG, WebP, …), `TileImage.pngDecoder`
+  /// elsewhere (PNG only — pass your own `decoder` for JPEG tiles).
   public init(
     template: String,
     projection: any Projection = Projections.Mercator(),
@@ -92,10 +93,17 @@ public struct URLTemplateTileSource: TileSource, @unchecked Sendable {
       attribution: attribution,
       userAgent: userAgent,
       urlSession: urlSession,
-      decoder: TileImage.coreGraphicsDecoder
+      decoder: Self.defaultDecoder
     )
   }
+
+  private static var defaultDecoder: @Sendable (Data) throws -> TileImage? {
+#if canImport(CoreGraphics) && canImport(ImageIO)
+    TileImage.coreGraphicsDecoder
+#else
+    TileImage.pngDecoder
 #endif
+  }
 
   public func tile(for key: TileKey) async throws -> TileImage? {
     guard contains(key) else { return nil }

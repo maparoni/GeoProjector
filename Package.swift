@@ -25,6 +25,9 @@ let package = Package(
     .package(url: "https://github.com/maparoni/geojsonkit-turf", from: "0.1.0"),
 //    .package(name: "geojsonkit-turf", path: "../GeoJSONKit-Turf"),
     .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
+    // Pinned below 4.5: from 4.5.0 swift-png depends on a package whose
+    // manifest needs Swift 6.0 tools, which breaks the Swift 5.10 CI build.
+    .package(url: "https://github.com/tayloraswift/swift-png.git", "4.4.9"..<"4.5.0"),
   ],
   targets: [
     .target(
@@ -60,6 +63,7 @@ let package = Package(
       dependencies: [
         "GeoProjector",
         .product(name: "Algorithms", package: "swift-algorithms"),
+        .product(name: "PNG", package: "swift-png"),
       ]),
     .testTarget(
       name: "GeoDrawerTests",
