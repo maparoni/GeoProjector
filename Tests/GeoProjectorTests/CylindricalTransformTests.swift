@@ -52,6 +52,15 @@ struct CylindricalTransformTests {
     #expect(Projections.Cassini().cylindricalTransform(to: Projections.Cassini()) == nil)
   }
 
+  /// The width is the projected x range, so it must use the same
+  /// (radian) standard parallel as `project`.
+  @Test func equirectangularWidthMatchesItsStandardParallel() throws {
+    let projection = Projections.Equirectangular(reference: GeoJSON.Position(latitude: 0, longitude: 0), phiOne: 60)
+    #expect(abs(projection.projectionSize.width - .pi) < 1e-9)
+    let east = try #require(projection.project(.init(x: .pi, y: 0)))
+    #expect(abs(east.x - projection.projectionSize.width / 2) < 1e-9)
+  }
+
   @Test func onlyEquatorAlignedCylindricalsHaveALongitudeScale() {
     #expect(Projections.Mercator().longitudeScale == 1)
     #expect(Projections.GallPeters().longitudeScale == 1)

@@ -27,12 +27,13 @@ extension Projections {
   /// Projection applying plain lat/long, use `phiOne = 0` for Plate Carée
   /// https://en.wikipedia.org/wiki/Equirectangular_projection
   public struct Equirectangular: Projection {
+    /// - Parameter phiOne: The standard parallel, in degrees.
     public init(reference: Point, phiOne: Double) {
       self.reference = reference
       self.phiOne = phiOne.toRadians()
       
       self.projectionSize = .init(
-        width: 2 * .pi * cos(phiOne),
+        width: 2 * .pi * cos(self.phiOne),
         height: .pi
       )
     }
@@ -41,6 +42,7 @@ extension Projections {
       self.init(reference: reference, phiOne: 0)
     }
     
+    /// - Parameter phiOne: The standard parallel, in degrees.
     public init(reference: GeoJSON.Position, phiOne: Double) {
       self.init(reference: .init(x: reference.longitude.toRadians(), y: reference.latitude.toRadians()), phiOne: phiOne)
     }
