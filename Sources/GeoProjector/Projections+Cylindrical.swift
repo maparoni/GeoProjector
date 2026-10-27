@@ -27,12 +27,13 @@ extension Projections {
   /// Projection applying plain lat/long, use `phiOne = 0` for Plate Carée
   /// https://en.wikipedia.org/wiki/Equirectangular_projection
   public struct Equirectangular: Projection {
+    /// - Parameter phiOne: The standard parallel, in degrees.
     public init(reference: Point, phiOne: Double) {
       self.reference = reference
       self.phiOne = phiOne.toRadians()
       
       self.projectionSize = .init(
-        width: 2 * .pi * cos(phiOne),
+        width: 2 * .pi * cos(self.phiOne),
         height: .pi
       )
     }
@@ -41,6 +42,7 @@ extension Projections {
       self.init(reference: reference, phiOne: 0)
     }
     
+    /// - Parameter phiOne: The standard parallel, in degrees.
     public init(reference: GeoJSON.Position, phiOne: Double) {
       self.init(reference: .init(x: reference.longitude.toRadians(), y: reference.latitude.toRadians()), phiOne: phiOne)
     }
@@ -55,6 +57,8 @@ extension Projections {
     public let mapBounds: MapBounds = .rectangle
 
     public let wrapsLongitudinally: Bool = true
+
+    public var longitudeScale: Double? { cos(phiOne) }
 
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
@@ -119,6 +123,8 @@ extension Projections {
 
     public let wrapsLongitudinally: Bool = true
 
+    public let longitudeScale: Double? = 1
+
     public func project(_ point: Point) -> Point? {
       var adjusted = Projections.adjust(point, reference: reference)
       adjusted.y = min(Self.maxLat, max(Self.maxLat * -1, adjusted.y))
@@ -152,6 +158,8 @@ extension Projections {
     public let mapBounds: MapBounds = .rectangle
 
     public let wrapsLongitudinally: Bool = true
+
+    public let longitudeScale: Double? = 1
 
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)

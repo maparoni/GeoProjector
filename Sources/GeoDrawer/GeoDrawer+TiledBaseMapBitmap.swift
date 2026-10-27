@@ -20,10 +20,19 @@ extension GeoDrawer {
   /// the source's coverage, or in tiles that haven't been fetched are left
   /// transparent.
   ///
+  /// When the drawer and the tiles are the same equator-aligned cylindrical
+  /// projection (Mercator on Mercator tiles, the common case), the
+  /// geographic round trip is skipped: each output pixel maps to the tiles
+  /// by a scale and a shift, so the tiles are composited without being
+  /// reprojected. See `Projection.cylindricalTransform(to:)`.
+  /// `allowDirect: false` forces the round trip, for tests.
+  ///
   /// Pure Swift, so it runs on Linux as well as Apple platforms. Callers
   /// are expected to have run `prefetchTiles(for:)` first; nothing is
   /// fetched here.
-  func renderTiledBaseMapBitmap(_ tiledBaseMap: TiledBaseMap, zoom z: Int) -> RasterBitmap? {
+  func renderTiledBaseMapBitmap(
+    _ tiledBaseMap: TiledBaseMap, zoom z: Int, allowDirect: Bool = true
+  ) -> RasterBitmap? {
     guard let projection else { return nil }
 
     // Render at backing-store resolution so the result downscales (rather
@@ -68,7 +77,8 @@ extension GeoDrawer {
         sampling: tiledBaseMap.sampling,
         alpha: tiledBaseMap.alpha,
         tileGrid: grid,
-        wrapsLongitudinally: source.projection.wrapsLongitudinally
+        wrapsLongitudinally: source.projection.wrapsLongitudinally,
+        direct: allowDirect ? projection.cylindricalTransform(to: source.projection) : nil
       )
       DispatchQueue.concurrentPerform(iterations: height) { py in
         context.renderRow(py)
@@ -141,6 +151,9 @@ private struct TiledRasterContext: @unchecked Sendable {
   /// before the per-pixel sweep starts.
   let tileGrid: TileGrid
   let wrapsLongitudinally: Bool
+  /// Set when a projected point maps to the source's projected space by a
+  /// scale and a shift, skipping the geographic round trip.
+  let direct: CylindricalTransform?
 
   func renderRow(_ py: Int) {
     // Convert pixel-space row to point-space so the projection's screen
@@ -155,15 +168,28 @@ private struct TiledRasterContext: @unchecked Sendable {
         from: drawerSize, zoomTo: drawerZoom, insets: drawerInsets,
         coordinateSystem: .topLeft
       )
-      guard mapBounds.contains(projected, projectionSize: projSize),
-            let geo = projection.inverse(projected),
-            let sourcePoint = sourceProjection.point(
-              for: geo,
-              size: sourceCanvasSize,
-              zoomTo: nil, insets: .zero,
-              coordinateSystem: .topLeft
-            )
-      else { continue }
+      guard mapBounds.contains(projected, projectionSize: projSize) else { continue }
+
+      let sourcePoint: Point
+      if let direct {
+        // Out-of-range longitudes wrap below, like the round trip's.
+        sourcePoint = sourceProjection.translate(
+          direct.apply(projected),
+          to: sourceCanvasSize,
+          zoomTo: nil, insets: .zero,
+          coordinateSystem: .topLeft
+        )
+      } else {
+        guard let geo = projection.inverse(projected),
+              let point = sourceProjection.point(
+                for: geo,
+                size: sourceCanvasSize,
+                zoomTo: nil, insets: .zero,
+                coordinateSystem: .topLeft
+              )
+        else { continue }
+        sourcePoint = point
+      }
 
       var sxFull = sourcePoint.x
       let syFull = sourcePoint.y

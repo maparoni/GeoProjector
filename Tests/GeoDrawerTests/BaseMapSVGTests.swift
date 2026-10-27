@@ -131,6 +131,36 @@ struct BaseMapSVGTests {
     #expect(Self.pixel(bitmap, x: 27, y: 24) == Self.yellow)
   }
 
+  /// An equirectangular map of an equirectangular image takes the direct
+  /// path; it must give the round trip's pixels, re-centred and zoomed in.
+  @Test(arguments: [0.0, 2.8])
+  func equirectangularDirectPathMatchesTheRoundTrip(centreLongitude: Double) throws {
+    let box = GeoJSON.BoundingBox(positions: [
+      .init(latitude: -40, longitude: 150), .init(latitude: 10, longitude: -170),
+    ])
+    let drawer = GeoDrawer(
+      size: .init(width: 48, height: 40),
+      projection: Projections.Equirectangular(reference: .init(x: centreLongitude, y: -0.4)),
+      zoomTo: box
+    )
+    #expect(drawer.projection!.cylindricalTransform(to: Projections.Equirectangular()) != nil)
+
+    for sampling in [GeoDrawer.Sampling.nearest, .bilinear] {
+      let baseMap = GeoDrawer.BaseMap(
+        image: Self.quadrantImage(), sourceProjection: Projections.Equirectangular(), sampling: sampling)
+      let direct = try #require(drawer.renderBaseMapBitmap(baseMap))
+      let roundTrip = try #require(drawer.renderBaseMapBitmap(baseMap, allowDirect: false))
+      #expect(direct.pixels.contains { $0 != 0 })
+      let pixelCount = direct.width * direct.height
+      let differing = (0..<pixelCount).filter { i in
+        (0..<4).contains { abs(Int(direct.pixels[i * 4 + $0]) - Int(roundTrip.pixels[i * 4 + $0])) > 1 }
+      }.count
+      // As for tiles: nearest may round one row or column of edge-aligned
+      // pixel centres the other way.
+      #expect(differing <= max(direct.width, direct.height), "\(sampling): \(differing) of \(pixelCount) pixels differ")
+    }
+  }
+
   @Test func pixelDensityScalesTheEmbeddedRaster() throws {
     let baseMap = GeoDrawer.BaseMap(image: Self.quadrantImage(), sampling: .nearest, alpha: 0.5)
     var drawer = GeoDrawer(
