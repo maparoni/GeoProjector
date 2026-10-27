@@ -7,7 +7,7 @@
 
 import GeoJSONKit
 
-public enum ProjectionMode: String, Codable, Sendable {
+public enum ProjectionMode: String, Codable, Sendable, CaseIterable {
   case automatic
 
   case mercator
