@@ -56,6 +56,8 @@ extension Projections {
 
     public let wrapsLongitudinally: Bool = true
 
+    public var longitudeScale: Double? { cos(phiOne) }
+
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)
       return .init(
@@ -119,6 +121,8 @@ extension Projections {
 
     public let wrapsLongitudinally: Bool = true
 
+    public let longitudeScale: Double? = 1
+
     public func project(_ point: Point) -> Point? {
       var adjusted = Projections.adjust(point, reference: reference)
       adjusted.y = min(Self.maxLat, max(Self.maxLat * -1, adjusted.y))
@@ -152,6 +156,8 @@ extension Projections {
     public let mapBounds: MapBounds = .rectangle
 
     public let wrapsLongitudinally: Bool = true
+
+    public let longitudeScale: Double? = 1
 
     public func project(_ point: Point) -> Point? {
       let adjusted = Projections.adjust(point, reference: reference)

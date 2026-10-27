@@ -79,6 +79,17 @@ public protocol Projection {
   /// (no antimeridian seam); when not wrapping, those samples are skipped.
   /// Default is `false`.
   var wrapsLongitudinally: Bool { get }
+
+  /// For equator-aligned cylindrical projections, how far projected `x`
+  /// moves per radian of longitude: `x = longitudeScale × (λ − reference.x)`,
+  /// with `y` a function of latitude alone. `nil` for every other
+  /// projection, which is the default.
+  ///
+  /// Two projections of the same type with a scale differ only by a scale
+  /// and shift of `x`, so a raster in one can be resampled into the other
+  /// without going through geographic coordinates. See
+  /// ``cylindricalTransform(to:)``.
+  var longitudeScale: Double? { get }
 }
 
 extension Projection {
@@ -94,6 +105,38 @@ extension Projection {
 
   public var wrapsLongitudinally: Bool { false }
 
+  public var longitudeScale: Double? { nil }
+
+  /// The map from a point projected by this projection to the same place
+  /// projected by `other`, when both are the same equator-aligned
+  /// cylindrical projection: `y` stays, `x` scales and shifts. `nil` when
+  /// they need a full `inverse` then `project` round trip.
+  ///
+  /// The returned `x` may fall outside `other`'s range by whole turns;
+  /// callers that wrap longitudinally fold it back.
+  public func cylindricalTransform(to other: Projection) -> CylindricalTransform? {
+    guard type(of: self) == type(of: other),
+          let selfScale = longitudeScale, let otherScale = other.longitudeScale,
+          selfScale != 0
+    else { return nil }
+    // self:  x  = k₁ (λ − λ₁)  ⇒  λ = x / k₁ + λ₁
+    // other: x′ = k₂ (λ − λ₂)  =  (k₂ / k₁) x + k₂ (λ₁ − λ₂)
+    return CylindricalTransform(
+      xScale: otherScale / selfScale,
+      xOffset: otherScale * (reference.x - other.reference.x)
+    )
+  }
+
+}
+
+/// See ``Projection/cylindricalTransform(to:)``.
+public struct CylindricalTransform: Equatable, Sendable {
+  public let xScale: Double
+  public let xOffset: Double
+
+  public func apply(_ point: Point) -> Point {
+    Point(x: point.x * xScale + xOffset, y: point.y)
+  }
 }
 
 extension Projection {

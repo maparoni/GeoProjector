@@ -25,10 +25,17 @@ extension GeoDrawer {
   /// coverage, are left transparent so the surrounding `mapBackground` /
   /// `mapBackdrop` shows through.
   ///
+  /// When the drawer and the image are the same equator-aligned cylindrical
+  /// projection (an equirectangular map of an equirectangular Blue Marble),
+  /// the geographic round trip is skipped: each output pixel maps to the
+  /// image by a scale and a shift. See
+  /// `Projection.cylindricalTransform(to:)`. `allowDirect: false` forces
+  /// the round trip, for tests.
+  ///
   /// Pure Swift, so it runs on Linux as well as Apple platforms. Nothing
   /// is cached here: the CoreGraphics renderer caches the wrapped
   /// `CGImage`, `drawSVG` encodes the bitmap as a PNG straight away.
-  func renderBaseMapBitmap(_ baseMap: BaseMap) -> RasterBitmap? {
+  func renderBaseMapBitmap(_ baseMap: BaseMap, allowDirect: Bool = true) -> RasterBitmap? {
     guard let projection else { return nil }
 
     // Render at backing-store resolution so the result downscales (rather
@@ -57,6 +64,7 @@ extension GeoDrawer {
         sourceProjection: baseMap.sourceProjection,
         sourceImageSize: sourceImageSize,
         wrapsLongitudinally: baseMap.sourceProjection.wrapsLongitudinally,
+        direct: allowDirect ? projection.cylindricalTransform(to: baseMap.sourceProjection) : nil,
         sampling: baseMap.sampling,
         alpha: baseMap.alpha,
         // Holding a strong reference keeps the underlying buffer alive
@@ -95,6 +103,9 @@ private struct BaseMapRasterContext: @unchecked Sendable {
   let sourceProjection: Projection
   let sourceImageSize: Size
   let wrapsLongitudinally: Bool
+  /// Set when a projected point maps to the source's projected space by a
+  /// scale and a shift, skipping the geographic round trip.
+  let direct: CylindricalTransform?
   let sampling: GeoDrawer.Sampling
   let alpha: Double
   let imageRef: GeoDrawer.BaseMapImage
@@ -120,22 +131,36 @@ private struct BaseMapRasterContext: @unchecked Sendable {
         insets: drawerInsets,
         coordinateSystem: .topLeft
       )
-      guard mapBounds.contains(projected, projectionSize: projSize),
-            let geo = projection.inverse(projected) else {
+      guard mapBounds.contains(projected, projectionSize: projSize) else {
         continue
       }
 
-      // Forward-project the geographic coordinate through the source
-      // projection to find the source-image pixel that backs this output
-      // pixel. `.topLeft` gives image coordinates with row 0 at the visual
-      // top, matching the source image's memory layout.
-      guard let sourcePixel = sourceProjection.point(
-        for: geo,
-        size: sourceImageSize,
-        zoomTo: nil,
-        insets: .zero,
-        coordinateSystem: .topLeft
-      ) else { continue }
+      // Find the source-image pixel that backs this output pixel, either
+      // by scaling and shifting (same cylindrical projection) or by going
+      // through the geographic coordinate. `.topLeft` gives image
+      // coordinates with row 0 at the visual top, matching the source
+      // image's memory layout.
+      let sourcePixel: Point
+      if let direct {
+        sourcePixel = sourceProjection.translate(
+          direct.apply(projected),
+          to: sourceImageSize,
+          zoomTo: nil,
+          insets: .zero,
+          coordinateSystem: .topLeft
+        )
+      } else {
+        guard let geo = projection.inverse(projected),
+              let point = sourceProjection.point(
+                for: geo,
+                size: sourceImageSize,
+                zoomTo: nil,
+                insets: .zero,
+                coordinateSystem: .topLeft
+              )
+        else { continue }
+        sourcePixel = point
+      }
 
       var sx = sourcePixel.x
       let sy = sourcePixel.y

@@ -145,22 +145,6 @@ struct TiledBaseMapSVGTests {
     #expect(Array(centre) == [0, 128, 0, 255])
   }
 
-  @Test func mercatorOnMercatorTilesSkipsTheRoundTrip() {
-    let mercator = Projections.Mercator()
-    #expect(GeoDrawer.directLongitudeShift(from: mercator, to: mercator) == 0)
-
-    let shifted = Projections.Mercator(reference: .init(x: 0.5, y: 0))
-    #expect(GeoDrawer.directLongitudeShift(from: shifted, to: mercator) == 0.5)
-
-    // Anything else goes through the geographic round trip.
-    #expect(GeoDrawer.directLongitudeShift(from: Projections.Orthographic(), to: mercator) == nil)
-    #expect(GeoDrawer.directLongitudeShift(from: Projections.Equirectangular(), to: mercator) == nil)
-
-    // Mercator ignores its reference's latitude, as when centred on content.
-    let centred = Projections.Mercator(reference: .init(x: 0.5, y: -0.6))
-    #expect(GeoDrawer.directLongitudeShift(from: centred, to: mercator) == 0.5)
-  }
-
   /// The direct path is a shortcut, not a different picture: same pixels as
   /// the round trip, zoomed in, with a shifted centre, across the antimeridian,
   /// up to rounding.

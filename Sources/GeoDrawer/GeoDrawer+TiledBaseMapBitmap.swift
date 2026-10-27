@@ -20,11 +20,12 @@ extension GeoDrawer {
   /// the source's coverage, or in tiles that haven't been fetched are left
   /// transparent.
   ///
-  /// When the drawer and the tiles share a projection that differs only by
-  /// a longitude shift (Mercator on Mercator tiles, the common case), the
+  /// When the drawer and the tiles are the same equator-aligned cylindrical
+  /// projection (Mercator on Mercator tiles, the common case), the
   /// geographic round trip is skipped: each output pixel maps to the tiles
-  /// by a shift and a scale, so the tiles are composited without being
-  /// reprojected. `allowDirect: false` forces the round trip, for tests.
+  /// by a scale and a shift, so the tiles are composited without being
+  /// reprojected. See `Projection.cylindricalTransform(to:)`.
+  /// `allowDirect: false` forces the round trip, for tests.
   ///
   /// Pure Swift, so it runs on Linux as well as Apple platforms. Callers
   /// are expected to have run `prefetchTiles(for:)` first; nothing is
@@ -77,8 +78,7 @@ extension GeoDrawer {
         alpha: tiledBaseMap.alpha,
         tileGrid: grid,
         wrapsLongitudinally: source.projection.wrapsLongitudinally,
-        directLongitudeShift: allowDirect
-          ? Self.directLongitudeShift(from: projection, to: source.projection) : nil
+        direct: allowDirect ? projection.cylindricalTransform(to: source.projection) : nil
       )
       DispatchQueue.concurrentPerform(iterations: height) { py in
         context.renderRow(py)
@@ -87,19 +87,6 @@ extension GeoDrawer {
     }
 
     return RasterBitmap(width: width, height: height, pixels: pixels)
-  }
-}
-
-extension GeoDrawer {
-  /// The longitude shift, in radians, that takes a point projected by
-  /// `projection` to the same point projected by `source`, when that is all
-  /// that separates them: both Mercator, which only reads its reference's
-  /// longitude. `nil` when the two need a full inverse-then-forward round
-  /// trip.
-  static func directLongitudeShift(from projection: Projection, to source: Projection) -> Double? {
-    guard projection is Projections.Mercator, source is Projections.Mercator
-    else { return nil }
-    return projection.reference.x - source.reference.x
   }
 }
 
@@ -164,10 +151,9 @@ private struct TiledRasterContext: @unchecked Sendable {
   /// before the per-pixel sweep starts.
   let tileGrid: TileGrid
   let wrapsLongitudinally: Bool
-  /// Set when the projection and the source differ only by this longitude
-  /// shift, so a projected point maps to the source by a shift and a scale,
-  /// skipping the geographic round trip. See `directLongitudeShift`.
-  let directLongitudeShift: Double?
+  /// Set when a projected point maps to the source's projected space by a
+  /// scale and a shift, skipping the geographic round trip.
+  let direct: CylindricalTransform?
 
   func renderRow(_ py: Int) {
     // Convert pixel-space row to point-space so the projection's screen
@@ -185,10 +171,10 @@ private struct TiledRasterContext: @unchecked Sendable {
       guard mapBounds.contains(projected, projectionSize: projSize) else { continue }
 
       let sourcePoint: Point
-      if let shift = directLongitudeShift {
+      if let direct {
         // Out-of-range longitudes wrap below, like the round trip's.
         sourcePoint = sourceProjection.translate(
-          Point(x: projected.x + shift, y: projected.y),
+          direct.apply(projected),
           to: sourceCanvasSize,
           zoomTo: nil, insets: .zero,
           coordinateSystem: .topLeft
