@@ -117,8 +117,10 @@ private struct SVGBuilder {
   private let width: Double
   private let height: Double
   private var elements: [String] = []
-  /// Set once an `<image>` is added: the element carries an `xlink:href`
-  /// alongside `href` for older renderers, which needs the namespace
+  /// Set once an `<image>` is added: the element references its data URI
+  /// through `xlink:href` alone, which every renderer reads (librsvg of any
+  /// age, every browser), where plain `href` is SVG 2 only. Carrying both
+  /// would embed the base64 payload twice. The namespace must then be
   /// declared on the root.
   private var usesXlink = false
 
@@ -164,7 +166,6 @@ private struct SVGBuilder {
       "width=\"\(formatNumber(width))\"",
       "height=\"\(formatNumber(height))\"",
       "preserveAspectRatio=\"none\"",
-      "href=\"\(uri)\"",
       "xlink:href=\"\(uri)\"",
     ]
     usesXlink = true

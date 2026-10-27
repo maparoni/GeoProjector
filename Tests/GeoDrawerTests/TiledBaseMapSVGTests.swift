@@ -76,7 +76,9 @@ struct TiledBaseMapSVGTests {
     let imageRange = try #require(svg.range(of: "<image "))
     #expect(svg.components(separatedBy: "<image ").count == 2)
     #expect(svg.contains("xmlns:xlink=\"http://www.w3.org/1999/xlink\""))
-    #expect(svg.contains("href=\"data:image/png;base64,"))
+    #expect(svg.contains("xlink:href=\"data:image/png;base64,"))
+    // Once only: a plain `href` alongside would double the payload.
+    #expect(svg.components(separatedBy: "data:image/png;base64,").count == 2)
     #expect(svg.contains("width=\"32.0\" height=\"32.0\" preserveAspectRatio=\"none\""))
 
     // The vector content is still there, and draws after (on top of) the image.
