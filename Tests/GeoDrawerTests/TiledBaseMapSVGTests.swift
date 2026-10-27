@@ -145,6 +145,60 @@ struct TiledBaseMapSVGTests {
     #expect(Array(centre) == [0, 128, 0, 255])
   }
 
+  /// The direct path is a shortcut, not a different picture: same pixels as
+  /// the round trip, zoomed in, with a shifted centre, across the antimeridian,
+  /// up to rounding.
+  @Test(arguments: [0.0, 2.8])
+  func directPathMatchesTheRoundTrip(centreLongitude: Double) async throws {
+    let box = GeoJSON.BoundingBox(positions: [
+      .init(latitude: -40, longitude: 150), .init(latitude: -10, longitude: -170),
+    ])
+    let drawer = GeoDrawer(
+      size: .init(width: 48, height: 40),
+      projection: Projections.Mercator(reference: .init(x: centreLongitude, y: -0.4)),
+      zoomTo: box
+    )
+
+    // Zoom 3 grid of gradient tiles, each one distinct.
+    var tiles: [TileKey: TileImage] = [:]
+    for x in 0..<8 {
+      for y in 0..<8 {
+        var pixels = [UInt8](repeating: 255, count: Self.tileSize * Self.tileSize * 4)
+        for py in 0..<Self.tileSize {
+          for px in 0..<Self.tileSize {
+            let i = (py * Self.tileSize + px) * 4
+            pixels[i + 0] = UInt8(x * 30 + px * 3)
+            pixels[i + 1] = UInt8(y * 30 + py * 3)
+            pixels[i + 2] = UInt8((x + y) * 10)
+          }
+        }
+        tiles[TileKey(z: 3, x: x, y: y)] = TileImage(width: Self.tileSize, height: Self.tileSize, pixels: pixels)
+      }
+    }
+    let source = StaticTileSource(projection: Projections.Mercator(), tileSize: Self.tileSize, tiles: tiles)
+
+    for sampling in [GeoDrawer.Sampling.nearest, .bilinear] {
+      let tiled = GeoDrawer.TiledBaseMap(source: source, zoom: 3, sampling: sampling)
+      await drawer.prefetchTiles(for: [.tiledBaseMap(tiled)])
+      let direct = try #require(drawer.renderTiledBaseMapBitmap(tiled, zoom: 3))
+      let roundTrip = try #require(drawer.renderTiledBaseMapBitmap(tiled, zoom: 3, allowDirect: false))
+      #expect(direct.pixels.contains { $0 != 0 })
+      let pixelCount = direct.width * direct.height
+      let differing = (0..<pixelCount).filter { i in
+        (0..<4).contains { abs(Int(direct.pixels[i * 4 + $0]) - Int(roundTrip.pixels[i * 4 + $0])) > 1 }
+      }.count
+      switch sampling {
+      case .bilinear:
+        #expect(differing == 0, "\(differing) of \(pixelCount) pixels differ")
+      case .nearest:
+        // A row whose pixel centres land exactly on a source pixel edge can
+        // round either way through the round trip's log and atan, and pick
+        // the neighbouring source pixel. No more than that one row.
+        #expect(differing <= direct.width, "\(differing) of \(pixelCount) pixels differ")
+      }
+    }
+  }
+
   @Test func pngCodecRoundTripsPremultipliedAlpha() throws {
     // 2×1: opaque red, then 50% green (premultiplied: 0,128,0,128).
     let bitmap = GeoDrawer.RasterBitmap(

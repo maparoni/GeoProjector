@@ -193,7 +193,7 @@ extension ContentView {
       
       switch projectionType {
       case .equirectangular:
-        projection = Projections.Equirectangular(reference: reference, phiOne: equirectangularPhiOne.toRadians())
+        projection = Projections.Equirectangular(reference: reference, phiOne: equirectangularPhiOne)
       case .cassini:
         projection = Projections.Cassini(reference: reference)
       case .mercator:
