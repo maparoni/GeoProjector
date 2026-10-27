@@ -164,6 +164,21 @@ GeoMap(
 )
 ```
 
+The sampler is pure Swift, so `drawSVG` embeds the base map on Linux too,
+as a base64 PNG `<image>` at the drawer's size times `pixelDensity`. Off
+Apple platforms the only decoder is `swift-png`, so the source image must
+be a PNG: convert NASA's Blue Marble or Black Marble JPEG once, ahead of
+time. The decoded image is RGBA8, four bytes per pixel, so a 4096×2048
+world image takes about 32 MB (roughly three times that transiently while
+decoding); reach for 8192×4096 only when the renders are large enough to
+show the detail. Decode once and share the `BaseMapImage` across renders.
+
+```swift
+let marble = try GeoDrawer.BaseMapImage.decode(pngData: pngBytes)!
+let drawer = GeoDrawer(size: .init(width: 800, height: 800), projection: Projections.Orthographic())
+let svg = drawer.drawSVG([.baseMap(.init(image: marble))] + vectorLayers)
+```
+
 For high-resolution imagery (split into tiles ahead of time) or live slippy
 maps, use a `TileSource` and `TiledBaseMap` instead. The protocol is pure
 Swift and works on Linux server-side; only the default tile-bytes decoder

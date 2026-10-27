@@ -19,9 +19,10 @@ extension GeoDrawer {
   ///
   /// On Apple platforms a `CGImage`-backed convenience initialiser is
   /// available (see `BaseMapImage.decode(_:maxDimension:)` in
-  /// `apple/BaseMap+CoreGraphics.swift`); on Linux callers construct one
-  /// directly from a `[UInt8]` RGBA8 buffer they decoded themselves
-  /// (e.g. via `swift-png`).
+  /// `apple/BaseMap+CoreGraphics.swift`). On every platform
+  /// `decode(pngData:)` decodes a PNG via `swift-png`, and callers can
+  /// construct one directly from a `[UInt8]` RGBA8 buffer they decoded
+  /// themselves.
   ///
   /// `Hashable` uses object identity so the `Content.baseMap` case can
   /// participate in `Content`'s synthesised `Hashable` conformance.
@@ -64,6 +65,20 @@ extension GeoDrawer {
       storage.deallocate()
     }
 
+    /// Decodes a PNG into a base-map image on any platform, via
+    /// `swift-png`. Returns `nil` if the bytes aren't a PNG (there is no
+    /// JPEG decoder off Apple platforms, so convert NASA's Blue Marble
+    /// JPEGs to PNG once, ahead of time); throws on malformed PNG data.
+    ///
+    /// Memory: the decoded image is held as RGBA8, four bytes per pixel,
+    /// so a 4096×2048 world image takes about 32 MB resident (and about
+    /// three times that transiently while decoding). Pick the source size
+    /// to suit the host; 8192×4096 only pays off for large renders.
+    public static func decode(pngData: Data) throws -> BaseMapImage? {
+      guard let bitmap = try PNGCodec.decode(pngData) else { return nil }
+      return BaseMapImage(width: bitmap.width, height: bitmap.height, pixels: bitmap.pixels)
+    }
+
     public static func == (lhs: BaseMapImage, rhs: BaseMapImage) -> Bool {
       lhs === rhs
     }
@@ -85,7 +100,9 @@ extension GeoDrawer {
   /// natural aspect ratio; otherwise the renderer will sample non-image
   /// areas as transparent.
   ///
-  /// SVG output (`drawSVG(_:)`) does not embed the raster.
+  /// Both the CoreGraphics renderer and `drawSVG(_:)` draw it: the SVG
+  /// embeds the rasterised base map as a base64 PNG `<image>` at the
+  /// drawer's size times `pixelDensity`.
   public struct BaseMap {
     public let image: BaseMapImage
     public let sourceProjection: any Projection
@@ -102,6 +119,20 @@ extension GeoDrawer {
       self.sourceProjection = sourceProjection
       self.sampling = sampling
       self.alpha = max(0, min(1, alpha))
+    }
+
+    /// Decodes `pngData` via `swift-png` (see `BaseMapImage.decode(pngData:)`)
+    /// and wraps it as a base map with the supplied source projection
+    /// (defaults to equirectangular). Returns `nil` if the bytes aren't a
+    /// PNG; throws on malformed PNG data.
+    public init?(
+      pngData: Data,
+      sourceProjection: any Projection = Projections.Equirectangular(),
+      sampling: Sampling = .bilinear,
+      alpha: Double = 1.0
+    ) throws {
+      guard let image = try BaseMapImage.decode(pngData: pngData) else { return nil }
+      self.init(image: image, sourceProjection: sourceProjection, sampling: sampling, alpha: alpha)
     }
   }
 }
