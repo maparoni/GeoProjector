@@ -54,16 +54,25 @@ extension GeoDrawer {
       )
     }
 
-    // Tiled base maps go under the vector layers but above the map
-    // background fill, composited into one PNG per base map and embedded as
-    // a data URI so renderers without network access (librsvg) still show
-    // them. Pixels outside the projection's image are transparent, so no
-    // clip path is needed. Tiles must already be in the drawer's cache —
-    // see `prefetchTiles(for:)`.
+    // Base maps go under the vector layers but above the map background
+    // fill, rasterised into one PNG per base map and embedded as a data
+    // URI so renderers without network access (librsvg) still show them.
+    // Pixels outside the projection's image are transparent, so no clip
+    // path is needed. Single images are sampled straight from their
+    // `BaseMapImage`; tiles must already be in the drawer's cache — see
+    // `prefetchTiles(for:)`.
     for content in contents {
-      guard case let .tiledBaseMap(tiled) = content else { continue }
-      let zoom = resolvedZoom(tiled.zoom, source: tiled.source)
-      guard let bitmap = renderTiledBaseMapBitmap(tiled, zoom: zoom) else { continue }
+      let bitmap: RasterBitmap?
+      switch content {
+      case let .baseMap(baseMap):
+        bitmap = renderBaseMapBitmap(baseMap)
+      case let .tiledBaseMap(tiled):
+        let zoom = resolvedZoom(tiled.zoom, source: tiled.source)
+        bitmap = renderTiledBaseMapBitmap(tiled, zoom: zoom)
+      case .circle, .line, .polygon:
+        continue
+      }
+      guard let bitmap else { continue }
       svg.addImage(
         pngData: bitmap.pngData(),
         x: 0, y: 0, width: size.width, height: size.height
@@ -75,9 +84,7 @@ extension GeoDrawer {
       switch content {
       case .circle:
         break  // Draw circles on top
-      case .baseMap:
-        break  // SVG output omits single-image base maps
-      case .tiledBaseMap:
+      case .baseMap, .tiledBaseMap:
         break  // Embedded above
       case let .line(lines, stroke, strokeWidth):
         for line in lines {
