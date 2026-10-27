@@ -339,3 +339,45 @@ extension MapBounds {
     return bestIdx
   }
 }
+
+extension MapBounds {
+  /// For a polygon boundary, where the horizontal line at `y` crosses it, in
+  /// ascending order; `nil` for the other shapes, which are cheap to test
+  /// point by point.
+  ///
+  /// A point `(x, y)` is inside exactly when an odd number of crossings lie
+  /// to its right, the same rule `contains` applies, so a raster sampler can
+  /// compute this once per row instead of testing the polygon per pixel.
+  /// See ``RowCrossings``.
+  public func crossings(atY y: Double) -> RowCrossings? {
+    guard case .bezier(let polygon) = self, polygon.count >= 3 else { return nil }
+    var xs: [Double] = []
+    var j = polygon.count - 1
+    for i in 0..<polygon.count {
+      let pi = polygon[i], pj = polygon[j]
+      if (pi.y > y) != (pj.y > y) {
+        xs.append((pj.x - pi.x) * (y - pi.y) / (pj.y - pi.y) + pi.x)
+      }
+      j = i
+    }
+    return RowCrossings(y: y, xs: xs.sorted())
+  }
+}
+
+/// Where a horizontal line crosses a polygon boundary. See
+/// ``MapBounds/crossings(atY:)``.
+public struct RowCrossings: Sendable {
+  public let y: Double
+  let xs: [Double]
+
+  /// Whether `x` on this row is inside the polygon: an odd number of
+  /// crossings lie strictly to its right.
+  public func contains(_ x: Double) -> Bool {
+    var low = 0, high = xs.count
+    while low < high {
+      let mid = (low + high) / 2
+      if xs[mid] > x { high = mid } else { low = mid + 1 }
+    }
+    return (xs.count - low) % 2 == 1
+  }
+}
