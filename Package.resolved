@@ -19,6 +19,15 @@
       }
     },
     {
+      "identity" : "h",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/rarestype/h",
+      "state" : {
+        "revision" : "aa3626829160917d4378330617971977cbd78f5b",
+        "version" : "1.0.1"
+      }
+    },
+    {
       "identity" : "swift-algorithms",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-algorithms.git",
@@ -37,15 +46,6 @@
       }
     },
     {
-      "identity" : "swift-hash",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/tayloraswift/swift-hash",
-      "state" : {
-        "revision" : "7fd5fb1753fe69bd6c04ecda36aab546cdcaae99",
-        "version" : "0.7.1"
-      }
-    },
-    {
       "identity" : "swift-numerics",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-numerics.git",
@@ -59,8 +59,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tayloraswift/swift-png.git",
       "state" : {
-        "revision" : "2f68db3d6b3005035dc213275e8f35b6a4d0581f",
-        "version" : "4.4.9"
+        "revision" : "2d17c6c51c098628574c0383f1119892655a73a2",
+        "version" : "4.5.2"
       }
     }
   ],
