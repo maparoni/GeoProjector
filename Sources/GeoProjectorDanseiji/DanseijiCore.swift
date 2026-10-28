@@ -114,7 +114,8 @@ enum DanseijiCore {
   /// `pixels` lookup grid, in 3-D Cartesian space so meridians at the poles
   /// don't blow up.
   static func inverse(_ point: Point, data: DanseijiData, reference: Point) -> Point? {
-    if !pointInPolygon(point, polygon: data.edge) {
+    let inside = data.edgeGrid?.contains(point) ?? pointInPolygon(point, polygon: data.edge)
+    if !inside {
       return nil
     }
 

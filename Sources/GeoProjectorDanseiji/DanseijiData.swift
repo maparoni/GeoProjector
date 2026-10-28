@@ -38,6 +38,8 @@ struct DanseijiData {
   /// (x, y) back to (col, row) in the pixel grid.
   let edgeBounds: Rect
   let projectionSize: Size
+  /// `edge` as a fast inside test, for `inverse`.
+  var edgeGrid: InsideGrid?
 }
 
 enum DanseijiLoadError: Error {
@@ -208,15 +210,17 @@ enum DanseijiLoader {
     let maxAbsX = max(abs(xMin), abs(xMax))
     let maxAbsY = max(abs(yMin), abs(yMax))
 
+    let edgeBounds = Rect(
+      origin: Point(x: xMin, y: yMin),
+      size: Size(width: xMax - xMin, height: yMax - yMin)
+    )
     return DanseijiData(
       cells: shiftedCells,
       edge: shiftedEdge,
       pixels: pixels,
-      edgeBounds: Rect(
-        origin: Point(x: xMin, y: yMin),
-        size: Size(width: xMax - xMin, height: yMax - yMin)
-      ),
-      projectionSize: Size(width: 2 * maxAbsX, height: 2 * maxAbsY)
+      edgeBounds: edgeBounds,
+      projectionSize: Size(width: 2 * maxAbsX, height: 2 * maxAbsY),
+      edgeGrid: InsideGrid(polygon: shiftedEdge, bounds: edgeBounds)
     )
   }
 }
