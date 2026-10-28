@@ -117,6 +117,7 @@ private struct BaseMapRasterContext: @unchecked Sendable {
     // Output rows are in backing-pixel space; convert each to the
     // drawer's point-space before asking the projection.
     let pyPoints = (Double(py) + 0.5) / pixelDensity
+    var crossings: RowCrossings?
 
     for px in 0..<width {
       let pxPoints = (Double(px) + 0.5) / pixelDensity
@@ -131,7 +132,7 @@ private struct BaseMapRasterContext: @unchecked Sendable {
         insets: drawerInsets,
         coordinateSystem: .topLeft
       )
-      guard mapBounds.contains(projected, projectionSize: projSize) else {
+      guard mapBounds.contains(projected, projectionSize: projSize, row: &crossings) else {
         continue
       }
 

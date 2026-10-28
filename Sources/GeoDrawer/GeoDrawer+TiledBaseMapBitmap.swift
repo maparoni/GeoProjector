@@ -159,6 +159,7 @@ private struct TiledRasterContext: @unchecked Sendable {
     // Convert pixel-space row to point-space so the projection's screen
     // transform (which operates in points) maps correctly.
     let pyPoints = (Double(py) + 0.5) / pixelDensity
+    var crossings: RowCrossings?
 
     for px in 0..<width {
       let pxPoints = (Double(px) + 0.5) / pixelDensity
@@ -168,7 +169,7 @@ private struct TiledRasterContext: @unchecked Sendable {
         from: drawerSize, zoomTo: drawerZoom, insets: drawerInsets,
         coordinateSystem: .topLeft
       )
-      guard mapBounds.contains(projected, projectionSize: projSize) else { continue }
+      guard mapBounds.contains(projected, projectionSize: projSize, row: &crossings) else { continue }
 
       let sourcePoint: Point
       if let direct {
@@ -279,5 +280,22 @@ private struct TiledRasterContext: @unchecked Sendable {
         return (r, g, b, a)
       }
     }
+  }
+}
+
+extension MapBounds {
+  /// `contains`, sped up for polygon bounds when called pixel by pixel along
+  /// a raster row: the row's crossings are computed on its first pixel and
+  /// reused while the projected `y` stays the same, so the polygon is walked
+  /// once per row instead of once per pixel.
+  func contains(_ point: Point, projectionSize: Size, row: inout RowCrossings?) -> Bool {
+    if let crossings = row, crossings.y == point.y {
+      return crossings.contains(point.x)
+    }
+    guard let crossings = crossings(atY: point.y) else {
+      return contains(point, projectionSize: projectionSize)
+    }
+    row = crossings
+    return crossings.contains(point.x)
   }
 }
